@@ -1,0 +1,187 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Example</title>
+    {% load static %}
+    <link rel="stylesheet" href="static/style.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+<header>
+    <a>DEVICES</a>
+</header>
+<body>
+ <!-- Navigation -->
+ <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <a href="# " class="col-xs-4 navbar-brand">Logo</a>
+    <ul class=" col-xs-4 navbar-nav mx-auto">
+      <li class="nav-item"><a href="#" class="nav-link">Link 1</a></li>
+      <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
+      <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
+      <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+    </ul>
+  </nav>
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal">
+    ADD DEVICES
+</button>
+<button type="button" class="btn btn-info" onclick="afiseazaDate()">Afiseaza Date</button>
+<br><br>
+<div class="container mt-5">
+    <h2>Tabel Routere</h2>
+    <table class="table table-striped" id="tabelRoutere">
+        <thead>
+            <tr>
+                <th>IP</th>
+                <th>Description</th>
+                <th>State</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Aici vom adăuga dinamic rândurile cu datele -->
+        </tbody>
+    </table>
+</div>
+
+
+
+<div class="modal" id="myModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <!-- Antet Modal -->
+            <div id="modal-header" class="modal-header" style="background-color:white;">
+                <h1 class="modal-title">DEVICE DETAILES:</h1>
+                <h1 id='show-status' style="background-color:white;"></h1>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            
+
+            <!-- Conținut Modal -->
+            <div id="modal-body" class="modal-body" style="background-color:white;">
+                <form id="myForm">
+                    <div class="form-group">
+                        <label for="ip">IP:</label>
+                        <input type="text" class="form-control" id="ip" name="ip" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <input type="text" class="form-control" id="description" name="description" required>
+                    </div>
+                    <button type="button" class="btn btn-success" onclick="submitForm()">Trimite</button>
+                </form>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Închide</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<script>
+    function afiseazaDate() {
+    // Folosește fetch pentru a face un request către server
+    fetch('/show-routers-details/')
+        .then(response => response.json())
+        .then(data => {
+            // Iterează prin date și adaugă rânduri în tabel
+            const tabelRoutere = document.getElementById('tabelRoutere').getElementsByTagName('tbody')[0];
+            tabelRoutere.innerHTML = "";  // Curăță tabelul pentru a adăuga date noi
+            console.log(data)
+            data.forEach(router => {
+                const newRow = tabelRoutere.insertRow();
+                const cell1 = newRow.insertCell(0);
+                const cell2 = newRow.insertCell(1);
+                const cell3 = newRow.insertCell(2);
+
+                cell1.innerHTML = router.IP;
+                cell2.innerHTML = router.description;
+                cell3.innerHTML = router.r_state;
+
+                // Adaugă clase CSS în funcție de valoarea din r_state
+                if (router.r_state === 'active') {
+                    newRow.classList.add('table-success');
+                } else if (router.r_state === 'inactive') {
+                    newRow.classList.add('table-danger');
+                }
+            });
+        })
+        .catch(error => console.error('Error fetching data:', error));
+}
+
+    function check_response(status, message) {
+        if (status== "success") {
+            const modalHeader = document.getElementById('modal-header');
+            modalHeader.style.backgroundColor = 'green';
+            const modalbody = document.getElementById('modal-body');
+            modalbody.style.backgroundColor = 'green';
+            const modaltext = document.getElementById('modal-body');
+            modaltext.textContent = 'Router added successfully';
+
+        }else {
+            const modalHeader = document.getElementById('modal-header');
+            modalHeader.style.backgroundColor = 'red';
+            const modalbody = document.getElementById('modal-body');
+            modalbody.style.backgroundColor = 'red';
+            const modaltext = document.getElementById('modal-body');
+            modaltext.textContent = 'Connection error';
+        }
+
+        const modalBody = document.querySelector('.modal-body');
+        modalBody.classList.remove('modal-success', 'modal-error');
+        modalBody.classList.add(`modal-${status}`);
+
+        const modalHeader = document.querySelector('.modal-header');
+        modalHeader.classList.remove('modal-success', 'modal-error');
+        modalHeader.classList.add(`modal-${status}`);
+
+        const modalTitle = document.querySelector('.modal-title');
+        modalTitle.innerText = status === 'success' ? 'Router added successfully' : 'Error';
+    }
+
+
+    function submitForm() {
+        var formData = {
+            ip: $('#ip').val(),
+            username: $('#username').val(),
+            password: $('#password').val(),
+            description: $('#description').val()
+        };
+
+        // Trimite datele către server folosind fetch
+        fetch('/salveaza-datele/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('SUCCESS SENDING DATA TO SERVER', data);
+            check_response(data.status,"sarpillii")
+        })
+        .catch(error => {
+            console.error('Error during request', error);
+        });
+    }
+</script>
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
+
+
+</body>
+</html>
