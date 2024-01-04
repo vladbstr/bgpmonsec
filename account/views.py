@@ -12,9 +12,6 @@ from django.db import IntegrityError
 from .models import RouterInput
 from django import forms
 from .forms import CreateUserForm
-import psycopg2
-import json
-from .connections import test_ssh_connection, generate_router_id, extract_routers_details
 
 
 # view for rendering homepage
@@ -78,61 +75,6 @@ def handlelogout(request):
     messages.success(request, " Successfully logged out")
     return redirect('/')
 
-def show_routers_details(request):
-    # Execută un query SQL pentru a prelua toate datele din tabel
-    r_details = extract_routers_details()
-    data_routere = [{'IP': row[0].split(',')[0].replace("(",""),'description': row[0].split(',')[1], 'r_state': row[0].split(',')[2]} for row in r_details]
-    # Transmite datele către șablon
-    return JsonResponse(data_routere, safe=False)
-
-@csrf_exempt
-def salveaza_datele(request):
-    if request.method == 'POST':
-        try:
-            # Extrage datele din corpul cererii
-            data = json.loads(request.body.decode('utf-8'))
-            ip = data.get('ip')
-            username = data.get('username')
-            password = data.get('password')
-            description=data.get('description')
-
-            # Afișează datele în consola server-ului Django
-            print(f"IP: {ip}, Username: {username}, Parola: {password}, description: {description}")
-            if test_ssh_connection (ip,username,password) == 200:
-                print ('SSH connection successful!')
-                router_id=generate_router_id()
-                r_state=str('active')
-                # Conectează-te la baza de date PostgreSQL
-                conn = psycopg2.connect(
-                    database="bgpmonsec",
-                    user="bgpmonsec_user",
-                    password="admin",
-                    host="127.0.0.1",
-                    port="5432"
-                )   
-                
-                # Creează un cursor
-                cursor = conn.cursor()
-                # Definește comanda SQL de insert
-                sql_insert = 'INSERT INTO public."ROUTERS_INPUT" ("IP", username, password, description,r_state,router_id) VALUES (%s, %s, %s, %s, %s, %s);'
-                #INSERT INTO public."ROUTERS_INPUT" (IP, username, password) VALUES ('192.168.10.1', 'admin', 'admin');
-                # Execută comanda SQL folosind parametrii
-                cursor.execute(sql_insert, (ip, username, password,description,r_state,router_id))
-                # Salvează modificările
-                conn.commit()
-
-                # Închide cursorul și conexiunea
-                cursor.close()
-                conn.close()
-                return JsonResponse({'status': 'success'})
-            else:
-                return JsonResponse({'status': 'error', 'message': f'SSH CONECTION FAILED:'})
-        except json.JSONDecodeError as e:
-            return JsonResponse({'status': 'error', 'message': f'Eroare la decodificarea JSON: {str(e)}'})
-    else:
-        return JsonResponse({'status': 'error', 'message': 'Metoda de cerere nu este POST'})
-def monitor(request):
-    return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
 
 # view for rendering change password

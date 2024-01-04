@@ -33,6 +33,7 @@
     <table class="table table-striped" id="tabelRoutere">
         <thead>
             <tr>
+                <th>ROUTER ID</th>
                 <th>IP</th>
                 <th>Description</th>
                 <th>State</th>
@@ -92,7 +93,7 @@
 <script>
     function afiseazaDate() {
     // Folosește fetch pentru a face un request către server
-    fetch('/show-routers-details/')
+    fetch('/monitor/show-routers-details/')
         .then(response => response.json())
         .then(data => {
             // Iterează prin date și adaugă rânduri în tabel
@@ -104,11 +105,20 @@
                 const cell1 = newRow.insertCell(0);
                 const cell2 = newRow.insertCell(1);
                 const cell3 = newRow.insertCell(2);
+                const cell4 = newRow.insertCell(3);
+                const cell5 = newRow.insertCell(4);
 
-                cell1.innerHTML = router.IP;
-                cell2.innerHTML = router.description;
-                cell3.innerHTML = router.r_state;
-
+                cell1.innerHTML = router.router_id;
+                cell2.innerHTML = router.IP;
+                cell3.innerHTML = router.description;
+                cell4.innerHTML = router.r_state;
+                const deleteButton = document.createElement('button');
+                deleteButton.innerHTML = 'Șterge';
+                deleteButton.classList.add('btn', 'btn-danger');
+                deleteButton.onclick = function() {
+                    stergeRouter(router.router_id);
+                };
+                cell5.appendChild(deleteButton);
                 // Adaugă clase CSS în funcție de valoarea din r_state
                 if (router.r_state === 'active') {
                     newRow.classList.add('table-success');
@@ -118,7 +128,22 @@
             });
         })
         .catch(error => console.error('Error fetching data:', error));
-}
+    }
+
+    function stergeRouter(routerId) {
+        fetch('/monitor/delete-router/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        // Implementează logica pentru ștergere, poți folosi fetch sau altă metodă
+        // Exemplu: fetch(`/delete-router/${routerId}`, { method: 'DELETE' })
+        console.log(`Șterge router cu ID: ${routerId}`);
+        // După ștergere, poți reafișa datele cu afiseazaDate()
+        afiseazaDate();
+    }
 
     function check_response(status, message) {
         if (status== "success") {
@@ -160,7 +185,7 @@
         };
 
         // Trimite datele către server folosind fetch
-        fetch('/salveaza-datele/', {
+        fetch('/monitor/salveaza-datele/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

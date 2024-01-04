@@ -3,6 +3,9 @@ import datetime
 import random
 import psycopg2
 
+
+
+
 def extract_routers_details():
     conn = psycopg2.connect(
                         database="bgpmonsec",
@@ -58,5 +61,3 @@ def generate_router_id():
     code = f"{now.strftime(time_format)}{random.randint(10000, 99999)}"
 
     return str(code)
-
-print(generate_router_id())
