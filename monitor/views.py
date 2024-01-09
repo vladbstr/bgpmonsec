@@ -33,6 +33,7 @@ def delete_router(request):
         conn.commit()
         cursor.close()
         conn.close()
+        
 
         # Definește comanda SQL de inser
         

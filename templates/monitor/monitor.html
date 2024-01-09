@@ -117,6 +117,7 @@
                 deleteButton.classList.add('btn', 'btn-danger');
                 deleteButton.onclick = function() {
                     stergeRouter(router.router_id);
+                    console.log(router.router_id)
                 };
                 cell5.appendChild(deleteButton);
                 // Adaugă clase CSS în funcție de valoarea din r_state
@@ -131,6 +132,9 @@
     }
 
     function stergeRouter(routerId) {
+        var formData = {
+            'routerId': routerId
+        };
         fetch('/monitor/delete-router/', {
             method: 'POST',
             headers: {

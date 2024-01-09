@@ -2,6 +2,8 @@ import paramiko
 import datetime
 import random
 import psycopg2
+from pythonping import ping
+import json
 
 
 
@@ -20,6 +22,15 @@ def extract_routers_details():
     cursor.execute('SELECT ("IP", description, r_state,router_id) FROM public."ROUTERS_INPUT" ORDER BY id DESC')
 
     r_details=cursor.fetchall()
+ 
+    print(r_details)
+    for router in r_details:
+        route_split=router[0].split(',')
+        state=route_split[2]
+        ip=route_split[0].replace("(","")
+        print(state,ip)
+        if check_router_status(str(ip)) == 200:
+            print(r_details)
     cursor.close()
     conn.close()
     return r_details
@@ -61,3 +72,13 @@ def generate_router_id():
     code = f"{now.strftime(time_format)}{random.randint(10000, 99999)}"
 
     return str(code)
+
+def check_router_status(iprouter):
+
+    # Salvează modificările
+    ip_router_add=iprouter
+    response_list = ping(ip_router_add, count=2, timeout=1)
+    if any(response.success for response in response_list):
+        return 200 
+    else:
+        return 500
