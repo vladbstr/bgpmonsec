@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modal Example</title>
     {% load static %}
-    <link rel="stylesheet" href="static/style.css">
+    <link rel="stylesheet" href="{% static 'style.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
 <header>
@@ -107,6 +107,7 @@
                 const cell3 = newRow.insertCell(2);
                 const cell4 = newRow.insertCell(3);
                 const cell5 = newRow.insertCell(4);
+                const cell6 = newRow.insertCell(5);
 
                 cell1.innerHTML = router.router_id;
                 cell2.innerHTML = router.IP;
@@ -120,15 +121,28 @@
                     console.log(router.router_id)
                 };
                 cell5.appendChild(deleteButton);
-                // Adaugă clase CSS în funcție de valoarea din r_state
                 if (router.r_state === 'active') {
                     newRow.classList.add('table-success');
                 } else if (router.r_state === 'inactive') {
                     newRow.classList.add('table-danger');
-                }
+                };
+                const statisticsButton = document.createElement('button');
+                statisticsButton.innerHTML = 'Router Statistics';
+                statisticsButton.classList.add('btn', 'btn-info');
+                statisticsButton.onclick = function() {
+                    // Deschideți o pagină nouă pentru statistici
+                    openStatisticsPage(router.router_id);
+                };
+                cell6.appendChild(statisticsButton);
             });
         })
         .catch(error => console.error('Error fetching data:', error));
+    }
+
+
+    function openStatisticsPage(routerId) {
+    // Redirecționați către o pagină nouă pentru statistici
+    window.location.href = '/monitor/router-statistics/' + routerId;
     }
 
     function stergeRouter(routerId) {

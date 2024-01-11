@@ -40,7 +40,7 @@ def delete_router(request):
         return JsonResponse({'message': '200 Router Deleted Successfully!'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
+    
 def show_routers_details(request):
     # Execută un query SQL pentru a prelua toate datele din tabel
     r_details = extract_routers_details()
@@ -101,3 +101,9 @@ def monitor(request):
 
 def monitorizare_retea(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
+
+
+def router_statistics(request, router_id):
+    # Adăugați aici logica pentru a extrage detaliile din baza de date în funcție de router_id
+    # Puteți utiliza funcția `render` pentru a returna o pagină HTML cu detaliile extrase
+    return render(request, 'monitor/router_statistics.html', {'router_id': router_id})
