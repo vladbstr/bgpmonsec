@@ -1,22 +1,52 @@
-from pysnmp.hlapi import *
+import paramiko
 
-def snmp_get(ip, community, oid):
-    errorIndication, errorStatus, errorIndex, varBinds = next(
-        getCmd(SnmpEngine(),
-               CommunityData(community),
-               UdpTransportTarget((ip, 161)),
-               ContextData(),
-               ObjectType(ObjectIdentity(oid)))
-    )
+def fetch_bgp_data():
+    host = "192.168.0.1"
+    port = 22
+    username = "admin"
+    password = "cisco"
+    command = "show ip bgp summary"
+    
+    print("Connecting to the router...")
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(host, port, username, password)
+    
+    print("Executing command...")
+    stdin, stdout, stderr = client.exec_command(command)
+    output = stdout.read().decode()
 
-    if errorIndication:
-        print(errorIndication)
-    elif errorStatus:
-        print('%s at %s' % (errorStatus.prettyPrint(), errorIndex and varBinds[int(errorIndex)-1] or '?'))
-    else:
-        for varBind in varBinds:
-            print(' = '.join([x.prettyPrint() for x in varBind]))
+    print("Command executed. Output:")
+    print(output)
+    
+    client.close()
+    
+    print("Parsing output...")
+    lines = output.splitlines()
+    
+    # Find the start of the neighbor table
+    start_parsing = False
+    for line in lines:
+        if start_parsing:
+            parts = line.split()
+            if len(parts) < 10:
+                print(f"Skipping line (not enough parts): {line}")
+                continue
+            
+            neighbor_ip = parts[0]
+            state = parts[9]  # Adjust if state column is different
+            uptime = parts[8]  # Adjust if uptime column is different
+            flaps = 0  # As per your output, there is no flaps info. Adjust if needed.
+            
+            print(f"Neighbor IP: {neighbor_ip}")
+            print(f"State: {state}")
+            print(f"Uptime: {uptime}")
+            print(f"Flaps: {flaps}")
+        
+        
+        if line.startswith("Neighbor"):
+            start_parsing = True
+    
+    print("Data collection and storage complete.")
 
-# Exemplu de utilizare
-snmp_get('1.1.1.4', 'public', '1.3.6.1.2.1.15.3.1')  # Schimbați 'ROUTER_IP' cu adresa IP reală a routerului
-#snmp_get('1.1.1.4', 'public', '1.3.6.1.2.1.4.24.7')
+fetch_bgp_data()

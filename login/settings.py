@@ -141,11 +141,11 @@ MESSAGE_TAGS = {
     messages.ERROR: 'danger',
 }
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-    os.path.join(BASE_DIR, 'monitor', 'static'),
+    os.path.join(BASE_DIR, 'static')
 ]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'content')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 ###

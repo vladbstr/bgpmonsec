@@ -13,7 +13,7 @@ from django.db import IntegrityError
 from django import forms
 import psycopg2
 import json
-from .connections import test_ssh_connection, generate_router_id, extract_routers_details
+from .connections import test_ssh_connection, generate_router_id, extract_routers_details, process_router_details
 
 @csrf_exempt
 def delete_router(request):
@@ -94,6 +94,7 @@ def salveaza_datele(request):
             return JsonResponse({'status': 'error', 'message': f'Eroare la decodificarea JSON: {str(e)}'})
     else:
         return JsonResponse({'status': 'error', 'message': 'Metoda de cerere nu este POST'})
+    
 def monitor(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
@@ -102,8 +103,13 @@ def monitor(request):
 def monitorizare_retea(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
+def bgp_stats(request):
+    return render(request, 'monitor/bgp-stats.html', {'titlu': 'BGP Statistics'})
+
 
 def router_statistics(request, router_id):
-    # Adăugați aici logica pentru a extrage detaliile din baza de date în funcție de router_id
-    # Puteți utiliza funcția `render` pentru a returna o pagină HTML cu detaliile extrase
     return render(request, 'monitor/router_statistics.html', {'router_id': router_id})
+
+def router_details(request,router_id):
+    r_details=process_router_details(router_id)
+    return JsonResponse(r_details)

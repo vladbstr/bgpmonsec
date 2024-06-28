@@ -17,7 +17,7 @@
  <nav class="navbar navbar-expand-md navbar-dark bg-dark">
     <a href="# " class="col-xs-4 navbar-brand">Logo</a>
     <ul class=" col-xs-4 navbar-nav mx-auto">
-      <li class="nav-item"><a href="#" class="nav-link">Link 1</a></li>
+        <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
       <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
       <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
       <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
@@ -26,7 +26,6 @@
 <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal">
     ADD DEVICES
 </button>
-<button type="button" class="btn btn-info" onclick="afiseazaDate()">Afiseaza Date</button>
 <br><br>
 <div class="container mt-5">
     <h2>Tabel Routere</h2>
@@ -139,7 +138,11 @@
         .catch(error => console.error('Error fetching data:', error));
     }
 
+    function updateData() {
+    afiseazaDate();  // Apelează funcția existentă
+}
 
+    
     function openStatisticsPage(routerId) {
     // Redirecționați către o pagină nouă pentru statistici
     window.location.href = '/monitor/router-statistics/' + routerId;
@@ -219,6 +222,13 @@
             console.error('Error during request', error);
         });
     }
+
+    // Apelează funcția inițial
+    updateData();
+
+    // Setează intervalul pentru a apela funcția la fiecare 5 secunde
+    setInterval(updateData, 5000);
+
 </script>
 <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>

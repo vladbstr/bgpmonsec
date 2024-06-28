@@ -12,5 +12,7 @@ urlpatterns = [
     path('show-routers-details/', views.show_routers_details, name='show_routers_details'),
     path('delete-router/', views.delete_router, name='delete_router'),
     path('router-statistics/<str:router_id>/', views.router_statistics, name='router_statistics'),
+    path('router_details/<str:router_id>/', views.router_details, name='router_details'),
+    path('bgp-stats/', views.bgp_stats, name='bgp_stats'),
 
 ]

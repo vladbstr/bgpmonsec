@@ -6,15 +6,28 @@ header {
 
 body {
     font-family: 'Arial', sans-serif;
-    background-color: #0e0909;
+    background-color: #ffffff;
     padding: 200px;
     margin: 0;
+}
+.body_router_details{
+    font-family: 'Arial', sans-serif;
+    background-color: #58926b;
+    padding: 100px;
+    margin: 0;
+}
+.blue-background {
+    background-color: #00f; /* Sau oricare alt cod de culoare albastră dorit */
+    text-align: center;
+    font-size: 36px;
+    color: #fff; /* Culoarea textului pentru a contrasta cu fundalul */
+    padding: 10px; /* Adăugați spațiu în jurul textului pentru a îmbunătăți aspectul */
 }
 
 h1 {
     text-align: center;
-    font-size: 36px;
-    color: #333;
+    font-size: 32px;
+    color: #000000;
 }
 
 .btn-primary {
@@ -57,3 +70,22 @@ h1 {
 
 
 .navbar li { display: inline-block;}
+
+#routerDetailsTable {
+    margin: auto;
+    width: 80%; /* Ajustează lățimea tabelului după preferințele tale */
+    border-collapse: collapse;
+    color: rgb(0, 0, 0);
+}
+
+#routerDetailsTable th, #routerDetailsTable td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    background-color: #f2f2f2;
+}
+
+#routerDetailsTable th {
+    background-color: #f2f2f2;
+}
+

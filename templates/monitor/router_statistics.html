@@ -1,13 +1,85 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Router Statistics - {{ router_id }}</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <!-- Adăugați aici orice fișiere CSS sau JS necesare pentru pagina de statistici -->
 </head>
-<body>
-    <h1>Router Statistics - {{ router_id }}</h1>
+<body class="body_router_details">
+    <h1 class="blue-background">Router Statistics - {{ router_id }}</h1><br>
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <a href="/monitor/monitor" class="col-xs-4 navbar-brand">Logo</a>
+        <ul class=" col-xs-4 navbar-nav mx-auto">
+          <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+          <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
+          <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
+          <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+        </ul>
+      </nav>
+    <br><br>
+    <table border="1" id="routerDetailsTable">
+        <thead>
+            <tr>
+                <th>IP</th>
+                <th>Hostname</th>
+                <th>IOS</th>
+                <th>Memory</th>
+                <th>Model</th>
+                <th>Serial Number</th>
+                <th>Uptime</th>
+                <th>version</th>
+            </tr>
+        </thead>
+        <tbody>
+           
+        </tbody>
+    </table>
     <!-- Adăugați aici orice conținut și detalii despre statistici pe care doriți să le afișați -->
+
+    
+
+
+
+
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Get router_id from the URL
+            console.log('URL:', window.location.href);
+
+            // Get router_id from the URL
+            var router_id = window.location.pathname.split('/').filter(Boolean).pop();
+
+            // Log the router_id
+            console.log('Router ID:', router_id);
+            $.ajax({
+                url: '/monitor/router_details/' + router_id + '/',
+                type: 'GET',
+                success: function(data) {
+                    console.log(data.version);
+                    // Populate the table with retrieved data
+                    var tableBody = $('#routerDetailsTable tbody');
+                    var row = $('<tr>');
+                    row.append($('<td>').text(data.ip));
+                    row.append($('<td>').text(data.hostname));
+                    row.append($('<td>').text(data.ios));
+                    row.append($('<td>').text(data.memory));
+                    row.append($('<td>').text(data.model));
+                    row.append($('<td>').text(data.serial));
+                    row.append($('<td>').text(data.uptime));
+                    row.append($('<td>').text(data.version));
+                    tableBody.append(row);
+                },
+                error: function(error) {
+                    console.error('Error retrieving router details:', error);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
