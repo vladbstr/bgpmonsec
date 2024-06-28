@@ -1,0 +1,186 @@
+Current configuration : 2434 bytes
+!
+! Last configuration change at 11:58:19 UTC Fri Jun 28 2024
+!
+version 16.7
+service timestamps debug datetime msec
+service timestamps log datetime msec
+platform qfp utilization monitor load 80
+no platform punt-keepalive disable-kernel-core
+platform console serial
+!
+hostname SP1
+!
+boot-start-marker
+boot-end-marker
+!
+!
+!
+no aaa new-model
+no ip icmp rate-limit unreachable
+!
+!
+!
+!
+!
+!
+!
+ip domain name SPROUTING.LOCAL
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+subscriber templating
+!
+!
+!
+!
+!
+!
+!
+multilink bundle-name authenticated
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+license udi pid CSR1000V sn 99C6T8B1XET
+no license smart enable
+diagnostic bootup level minimal
+!
+spanning-tree extend system-id
+archive
+ log config
+  hidekeys
+!
+!
+!
+username admin privilege 15 password 0 cisco
+!
+redundancy
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface Loopback0
+ ip address 1.1.1.1 255.255.255.255
+!
+interface GigabitEthernet1
+ ip address 80.120.30.5 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet2
+ ip address 80.120.30.2 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet3
+ ip address 80.120.30.17 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet4
+ ip address 192.168.0.1 255.255.255.0
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+router ospf 1
+ network 1.1.1.0 0.0.0.255 area 0
+ network 80.120.30.0 0.0.0.255 area 0
+ network 192.168.0.0 0.0.0.255 area 0
+!
+router bgp 65000
+ bgp log-neighbor-changes
+ neighbor 1.1.1.2 remote-as 65000
+ neighbor 1.1.1.2 update-source Loopback0
+ neighbor 1.1.1.2 route-reflector-client
+ neighbor 1.1.1.3 remote-as 65000
+ neighbor 1.1.1.3 update-source Loopback0
+ neighbor 1.1.1.3 route-reflector-client
+ neighbor 1.1.1.4 remote-as 65000
+ neighbor 1.1.1.4 update-source Loopback0
+ neighbor 1.1.1.4 route-reflector-client
+ neighbor 1.1.1.5 remote-as 65000
+ neighbor 1.1.1.5 update-source Loopback0
+ neighbor 1.1.1.5 route-reflector-client
+!
+ip forward-protocol nd
+ip tcp synwait-time 5
+no ip http server
+ip http authentication local
+no ip http secure-server
+!
+ip ssh time-out 60
+ip ssh authentication-retries 2
+!
+!
+!
+!
+!
+control-plane
+!
+!
+!
+!
+!
+alias exec sd sh ip int brief
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+ stopbits 1
+line vty 0 4
+ login local
+ transport input ssh
+!
+wsma agent exec
+!
+wsma agent config
+!
+wsma agent filesys
+!
+wsma agent notify
+!
+!
+end

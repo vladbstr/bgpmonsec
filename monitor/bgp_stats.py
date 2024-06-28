@@ -13,7 +13,7 @@ def fetch_bgp_summary(router_id):
 
     ###########################
     #sh ip bgp summaryy
-    ###########################
+    ############################
     cursor = conn.cursor()
     cursor.execute('SELECT "IP",username,password from public."ROUTERS_INPUT" where router_id=%s',(router_id,))
     conn_details=cursor.fetchall()
