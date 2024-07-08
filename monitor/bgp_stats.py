@@ -9,8 +9,6 @@ conn = database_connection()
 
 def fetch_bgp_summary(router_id):
 
-
-
     ###########################
     #sh ip bgp summaryy
     ############################
@@ -118,10 +116,62 @@ def fetch_bgp_summary(router_id):
                     )
     conn.commit()
     cursor.close()
-    conn.close()
+    
     print("Data collection and storage complete.")
 
-fetch_bgp_summary('28062414183645219')
+
+def get_bgp_peers_count():
+    cursor = conn.cursor()
+
+    query = """
+    SELECT COUNT(DISTINCT t1.neighbor_ip)
+    FROM bgpmonsec_project.bgp_summary t1
+    INNER JOIN (
+        SELECT router_id, MAX("timestamp") AS latest_timestamp
+        FROM bgpmonsec_project.bgp_summary
+        GROUP BY router_id
+    ) t2
+    ON t1.router_id = t2.router_id AND t1."timestamp" = t2.latest_timestamp;
+    """
+
+    cursor.execute(query)
+    result = cursor.fetchone()
+    
+    total_peers = result[0] if result else 0
+
+    cursor.close()
+
+    print(total_peers)
+
+
+def get_total_prefixes_count_latest():
+    cursor = conn.cursor()
+
+    query = """
+    SELECT COUNT(DISTINCT t1.network_with_mask)
+    FROM bgpmonsec_project.sh_bgp_ip t1
+    INNER JOIN (
+        SELECT router_id, MAX("timestamp") AS latest_timestamp
+        FROM bgpmonsec_project.sh_bgp_ip
+        GROUP BY router_id
+    ) t2
+    ON t1.router_id = t2.router_id AND t1."timestamp" = t2.latest_timestamp;
+    """
+
+    cursor.execute(query)
+    result = cursor.fetchone()
+    
+    total_prefixes = result[0] if result else 0
+
+    cursor.close()
+    
+
+    print(total_prefixes) 
+
+if __name__ == '__main__':
+    fetch_bgp_summary('28062414183645219')
+    get_bgp_peers_count()
+    get_total_prefixes_count_latest()
 
 
 

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Router Statistics - {{ router_id }}</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <!-- Adăugați aici orice fișiere CSS sau JS necesare pentru pagina de statistici -->
+    <style>
+        .stat-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .stat-card .description {
+            font-size: 14px;
+            color: #666;
+        }
+        .stat-card .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            color: green;
+        }
+    </style>
+</head>
+<body class="body_router_details">
+    <h1 class="blue-background">Router Statistics - {{ router_id }}</h1><br>
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <a href="/monitor/monitor" class="col-xs-4 navbar-brand">Logo</a>
+        <ul class=" col-xs-4 navbar-nav mx-auto">
+          <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+          <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
+          <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
+          <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+        </ul>
+    </nav>
+    <br><br>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">📶</div>
+                    <div class="value">215</div>
+                    <div class="description">Peer Count</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:47:23</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">🌐</div>
+                    <div class="value">624,912</div>
+                    <div class="description">IPv4 Prefixes</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:58:38</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">🔒</div>
+                    <div class="value">34,434</div>
+                    <div class="description">IPv6 Prefixes</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:58:33</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">➡️</div>
+                    <div class="value">238</div>
+                    <div class="description">Next Hop Addresses</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:58:18</div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">📏</div>
+                    <div class="value">3.307</div>
+                    <div class="description">Average AS Path Length</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:47:23</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">📶</div>
+                    <div class="value">29</div>
+                    <div class="description">Customer IPv4 Prefixes</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:58:38</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">🌐</div>
+                    <div class="value">6</div>
+                    <div class="description">Customer IPv6 Prefixes</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:58:33</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="icon">👥</div>
+                    <div class="value">9</div>
+                    <div class="description">BGP Customers</div>
+                    <div class="timestamp">Updated: Feb 2 2017, 11:58:18</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
