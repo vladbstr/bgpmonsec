@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modal Example</title>
-    {% load static %}
     <link rel="stylesheet" href="{% static 'style.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
-    
 </head>
 <header>
     <a>BGP Statistics</a>
@@ -16,47 +14,117 @@
 <body>
  <!-- Navigation -->
  <nav class="navbar navbar-expand-md navbar-dark bg-dark">
-    <a href="# " class="col-xs-4 navbar-brand">Logo</a>
-    <ul class=" col-xs-4 navbar-nav mx-auto">
-    <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
-      <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
-      <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
-      <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+    <a href="#" class="col-xs-4 navbar-brand">Logo</a>
+    <ul class="col-xs-4 navbar-nav mx-auto">
+        <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
     </ul>
-  </nav>
-  <div class="container">
+ </nav>
+ <div class="container">
     <div class="row">
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="icon">👥</div>
-                <div class="value">{{ num_peers }}</div>
+                <div class="value" id="num-peers">Loading...</div>
                 <div class="description">Număr de Peers</div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="stat-card">
                 <div class="icon">🌐</div>
-                <div class="value">{{ num_prefixes_ipv4 }}</div>
+                <div class="value" id="num-prefixes-ipv4">Loading...</div>
                 <div class="description">Număr de Prefixe IPv4</div>
             </div>
         </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <h3>Peer Data</h3>
+            <table class="table table-bordered" id="peer-table">
+                <thead>
+                    <tr>
+                        <th>Neighbor IP</th>
+                        <th>IPv4 Prefixes</th>
+                        <th>IPv6 Prefixes</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
         <div class="col-md-4">
-            <div class="stat-card">
-                <div class="icon">🌐</div>
-                <div class="value">{{ num_prefixes_ipv6 }}</div>
-                <div class="description">Număr de Prefixe IPv6</div>
-            </div>
+            <h3>Top Peers (Prefixes Received)</h3>
+            <ul class="list-group" id="top-peers-list"></ul>
         </div>
     </div>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script>
+$(document).ready(function() {
+    function fetchBGPStats() {
+        $.ajax({
+            url: '/monitor/api/get-bgp-stats/',
+            method: 'GET',
+            success: function(data) {
+                $('#num-peers').text(data.num_peers);
+                $('#num-prefixes-ipv4').text(data.num_prefixes_ipv4);
+            },
+            error: function() {
+                $('#num-peers').text('Error');
+                $('#num-prefixes-ipv4').text('Error');
+            }
+        });
+    }
+    
+    function fetchBGPPeers() {
+        $.ajax({
+            url: '/monitor/api/get-bgp-peers/',
+            method: 'GET',
+            success: function(data) {
+                var peerTableBody = $('#peer-table tbody');
+                peerTableBody.empty();
+                var topPeersList = $('#top-peers-list');
+                topPeersList.empty();
 
+                data.peers.forEach(function(peer, index) {
+                    peerTableBody.append(
+                        '<tr>' +
+                            '<td>' + peer.neighbor_ip + '</td>' +
+                            '<td>' + peer.ipv4_prefixes + '</td>' +
+                            '<td>' + peer.ipv6_prefixes + '</td>' +
+                        '</tr>'
+                    );
+
+                    if (index < 5) {
+                        topPeersList.append(
+                            '<li class="list-group-item">' +
+                                'Neighbor IP: ' + peer.neighbor_ip + '<br>' +
+                                'IPv4 Prefixes: ' + peer.ipv4_prefixes + '<br>' +
+                                'IPv6 Prefixes: ' + peer.ipv6_prefixes +
+                            '</li>'
+                        );
+                    }
+                });
+            },
+            error: function() {
+                console.error('Error fetching BGP peers data');
+            }
+        });
+    }
+    
+    // Apelăm funcțiile la fiecare 30 de secunde
+    setInterval(fetchBGPStats, 30000);
+    setInterval(fetchBGPPeers, 30000);
+    
+    // Apelăm funcțiile imediat ce pagina se încarcă
+    fetchBGPStats();
+    fetchBGPPeers();
+});
 </script>
-<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
-
-
-
 </body>
 </html>

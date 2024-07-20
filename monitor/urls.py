@@ -3,8 +3,9 @@ from django.urls import path
 from .views import monitorizare_retea
 from monitor import views
 from pathlib import Path
-import os
+
 app_name = 'monitor'
+
 urlpatterns = [
     path('monitor/', monitorizare_retea, name='monitor'),
     path('monitor', views.monitor, name="monitor"),
@@ -14,5 +15,6 @@ urlpatterns = [
     path('router-statistics/<str:router_id>/', views.router_statistics, name='router_statistics'),
     path('router_details/<str:router_id>/', views.router_details, name='router_details'),
     path('bgp-stats/', views.bgp_stats, name='bgp_stats'),
+    path('api/get-bgp-stats/', views.get_bgp_stats, name='get_bgp_stats')
 
 ]

@@ -1,7 +1,8 @@
-from connections import database_connection
+from .connections import database_connection
 from datetime import datetime
 import paramiko
-import ipaddress
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
 
 global_timestamp = datetime.now()
 conn = database_connection()
@@ -15,28 +16,28 @@ def fetch_bgp_summary(router_id):
     cursor = conn.cursor()
     cursor.execute('SELECT "IP",username,password from public."ROUTERS_INPUT" where router_id=%s',(router_id,))
     conn_details=cursor.fetchall()
-    print(conn_details)
+    #print(conn_details)
     host = conn_details[0][0]
     port = 22
     username = conn_details[0][1]
     password = conn_details[0][2]
     command = "show ip bgp summary"
     
-    print("Connecting to the router...")
+    #print("Connecting to the router...")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(host, port, username, password)
     
-    print("Executing command...")
+    #print("Executing command...")
     stdin, stdout, stderr = client.exec_command(command)
     output = stdout.read().decode()
 
-    print("Command executed. Output:")
-    print(output)
+    #print("Command executed. Output:")
+    #print(output)
 
     client.close()
 
-    print("Parsing output...")
+    #print("Parsing output...")
     lines = output.splitlines()
     
     # Find the start of the neighbor table
@@ -45,7 +46,7 @@ def fetch_bgp_summary(router_id):
         if start_parsing:
             parts = line.split()
             if len(parts) < 10:
-                print(f"Skipping line (not enough parts): {line}")
+                # print(f"Skipping line (not enough parts): {line}")
                 continue
             
             neighbor_ip = parts[0]
@@ -54,10 +55,10 @@ def fetch_bgp_summary(router_id):
             uptime = parts[8]  # Adjust if uptime column is different
             flaps = 0  # As per your output, there is no flaps info. Adjust if needed.
             
-            print(f"Neighbor IP: {neighbor_ip}")
-            print(f"State: {state}")
-            print(f"Uptime: {uptime}")
-            print(f"Flaps: {flaps}")
+            # print(f"Neighbor IP: {neighbor_ip}")
+            # print(f"State: {state}")
+            # print(f"Uptime: {uptime}")
+            # print(f"Flaps: {flaps}")
             cursor.execute(
                 'INSERT INTO bgpmonsec_project.bgp_summary (router_id, neighbor_ip, state, uptime, flaps, "timestamp", "as") VALUES (%s, %s, %s, %s, %s, %s, %s);',
                 (router_id, neighbor_ip, state, uptime, flaps, global_timestamp,as_number)
@@ -74,21 +75,21 @@ def fetch_bgp_summary(router_id):
     #sh ip bgp
     ###########################
 
-    print("Connecting to the router...")
+    #print("Connecting to the router...")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(host, port, username, password)
     command = 'sh ip bgp'
-    print("Executing command...")
+    #print("Executing command...")
     stdin, stdout, stderr = client.exec_command(command)
     output = stdout.read().decode()
 
-    print("Command executed. Output:")
-    print(output)
+    #print("Command executed. Output:")
+    #print(output)
     
     client.close()
     
-    print("Parsing output...")
+    #print("Parsing output...")
     lines = output.splitlines()
     parsing_bgp = False
     # Find the start of the neighbor table
@@ -117,7 +118,20 @@ def fetch_bgp_summary(router_id):
     conn.commit()
     cursor.close()
     
-    print("Data collection and storage complete.")
+    #print("Data collection and storage complete.")
+
+
+def fetch_bgp_summary_all_routers():
+    cursor = conn.cursor()
+    cursor.execute('SELECT router_id, r_state from public."ROUTERS_INPUT"')
+    conn_details=cursor.fetchall()
+    for router_id, state in conn_details:
+        if state == 'active':
+            print(router_id)
+            fetch_bgp_summary(router_id)
+    
+
+
 
 
 def get_bgp_peers_count():
@@ -140,8 +154,7 @@ def get_bgp_peers_count():
     total_peers = result[0] if result else 0
 
     cursor.close()
-
-    print(total_peers)
+    return total_peers
 
 
 def get_total_prefixes_count_latest():
@@ -166,12 +179,25 @@ def get_total_prefixes_count_latest():
     cursor.close()
     
 
-    print(total_prefixes) 
+    return total_prefixes
+
+
+@require_GET
+def get_bgp_stats(request):
+    num_peers = get_bgp_peers_count()
+    num_prefixes_ipv4 = get_total_prefixes_count_latest()
+
+    data = {
+        'num_peers': num_peers,
+        'num_prefixes_ipv4': num_prefixes_ipv4,
+    }
+    return JsonResponse(data)
 
 if __name__ == '__main__':
-    fetch_bgp_summary('28062414183645219')
-    get_bgp_peers_count()
-    get_total_prefixes_count_latest()
+    #fetch_bgp_summary('28062414183645219')
+    #get_bgp_peers_count()
+    #get_total_prefixes_count_latest()
+    fetch_bgp_summary_all_routers()
 
 
 

@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db import IntegrityError
@@ -14,6 +15,7 @@ from django import forms
 import psycopg2
 import json
 from .connections import test_ssh_connection, generate_router_id, extract_routers_details, process_router_details
+from .bgp_stats import get_bgp_peers_count, get_total_prefixes_count_latest, fetch_bgp_summary_all_routers
 
 @csrf_exempt
 def delete_router(request):
@@ -120,3 +122,15 @@ def router_statistics(request, router_id):
 def router_details(request,router_id):
     r_details=process_router_details(router_id)
     return JsonResponse(r_details)
+
+@require_GET
+def get_bgp_stats(request):
+    fetch_bgp_summary_all_routers()
+    num_peers = get_bgp_peers_count()
+    num_prefixes_ipv4 = get_total_prefixes_count_latest()
+
+    data = {
+        'num_peers': num_peers,
+        'num_prefixes_ipv4': num_prefixes_ipv4,
+    }
+    return JsonResponse(data)
