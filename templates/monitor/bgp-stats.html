@@ -48,7 +48,6 @@
                     <tr>
                         <th>Neighbor IP</th>
                         <th>IPv4 Prefixes</th>
-                        <th>IPv6 Prefixes</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -81,32 +80,19 @@ $(document).ready(function() {
     
     function fetchBGPPeers() {
         $.ajax({
-            url: '/monitor/api/get-bgp-peers/',
+            url: '/monitor/api/get-unique-prefixes/',  // Asigură-te că URL-ul corespunde cu ruta configurată în Django pentru funcția ta
             method: 'GET',
             success: function(data) {
                 var peerTableBody = $('#peer-table tbody');
                 peerTableBody.empty();
-                var topPeersList = $('#top-peers-list');
-                topPeersList.empty();
-
-                data.peers.forEach(function(peer, index) {
+                
+                data.prefixes.forEach(function(prefix) {
                     peerTableBody.append(
                         '<tr>' +
-                            '<td>' + peer.neighbor_ip + '</td>' +
-                            '<td>' + peer.ipv4_prefixes + '</td>' +
-                            '<td>' + peer.ipv6_prefixes + '</td>' +
+                            '<td>' + prefix.network_with_mask + '</td>' +
+                            '<td>' + prefix.as_number + '</td>' +
                         '</tr>'
                     );
-
-                    if (index < 5) {
-                        topPeersList.append(
-                            '<li class="list-group-item">' +
-                                'Neighbor IP: ' + peer.neighbor_ip + '<br>' +
-                                'IPv4 Prefixes: ' + peer.ipv4_prefixes + '<br>' +
-                                'IPv6 Prefixes: ' + peer.ipv6_prefixes +
-                            '</li>'
-                        );
-                    }
                 });
             },
             error: function() {

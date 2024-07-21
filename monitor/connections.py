@@ -134,22 +134,15 @@ def process_router_details(router_id):
                     port="5432"
                 )   
     cursor = conn.cursor()
-
-    # cursor.execute('DELETE FROM public."ROUTERS_INPUT" WHERE router_id=%s',(router_id,))
-    # conn.commit()
-    # cursor.close()
-    # cursor.close()
     cursor.execute('SELECT router_id, version, memory, "IP", hostname, uptime, ios, serial, model FROM bgpmonsec_project.router_details where router_id=%s',(router_id,))
     r_details=cursor.fetchall()
     if not r_details:
         cursor.execute('SELECT "IP", username, password FROM public."ROUTERS_INPUT" where router_id=%s',(router_id,))
         router_ssh_details=cursor.fetchall()
-        print(router_ssh_details)
         username=router_ssh_details[0][1]
         ip=router_ssh_details[0][0]
         password=router_ssh_details[0][2]
         details=get_router_info(router_id, ip, username, password,cursor,conn)
-        print(details)
         data = {
             'ip': details[3],
             'hostname' : details[4],
@@ -160,22 +153,53 @@ def process_router_details(router_id):
             'model':details[8],
             'memory':details[2]
         }
+        cursor.close()
         return data
         
     else:
+        ip = r_details[0][3]
+        cursor.execute('SELECT username, password FROM public."ROUTERS_INPUT" WHERE router_id=%s', (router_id,))
+        router_ssh_details = cursor.fetchall()
+        username = router_ssh_details[0][0]
+        password = router_ssh_details[0][1]
+
+        # Preluăm uptime-ul actualizat
+        new_uptime = get_router_uptime(ip, username, password)
+        
+        # Actualizăm uptime-ul în baza de date
+        cursor.execute('UPDATE bgpmonsec_project.router_details SET uptime=%s WHERE router_id=%s', (new_uptime, router_id))
+        conn.commit()
+
         data = {
             'ip': r_details[0][3],
-            'hostname' : r_details[0][4],
-            'uptime': r_details[0][5],
-            'version':r_details[0][1],
-            'ios':r_details[0][6],
-            'serial':r_details[0][7],
-            'model':r_details[0][8],
-            'memory':r_details[0][2]
+            'hostname': r_details[0][4],
+            'uptime': new_uptime,
+            'version': r_details[0][1],
+            'ios': r_details[0][6],
+            'serial': r_details[0][7],
+            'model': r_details[0][8],
+            'memory': r_details[0][2]
         }
         return data
     
-    cursor.close()
+
+def get_router_uptime(ip, username, password):
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(ip, username=username, password=password)
+
+        stdin, stdout, stderr = client.exec_command("show version | include uptime")
+        uptime_output = stdout.read().decode().strip()
+
+        client.close()
+
+        # Extrage uptime-ul din output
+        uptime = re.search(r'uptime is (.+)', uptime_output).group(1) if "uptime is " in uptime_output else "N/A"
+        return uptime
+    except Exception as e:
+        print(f"Error getting uptime: {e}")
+        return "N/A"
 
 def get_router_info(router_id, ip, username, password, cursor,conn):
     device=[]
@@ -238,3 +262,4 @@ def get_router_info(router_id, ip, username, password, cursor,conn):
     finally:
         # Închide conexiunea SSH
         net_connect.disconnect()
+

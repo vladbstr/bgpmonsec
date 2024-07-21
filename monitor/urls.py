@@ -3,6 +3,7 @@ from django.urls import path
 from .views import monitorizare_retea
 from monitor import views
 from pathlib import Path
+from .bgp_stats import get_unique_prefixes
 
 app_name = 'monitor'
 
@@ -15,6 +16,9 @@ urlpatterns = [
     path('router-statistics/<str:router_id>/', views.router_statistics, name='router_statistics'),
     path('router_details/<str:router_id>/', views.router_details, name='router_details'),
     path('bgp-stats/', views.bgp_stats, name='bgp_stats'),
-    path('api/get-bgp-stats/', views.get_bgp_stats, name='get_bgp_stats')
+    path('api/get-bgp-stats/', views.get_bgp_stats, name='get_bgp_stats'),
+     path('api/get-unique-prefixes/', get_unique_prefixes, name='get_unique_prefixes')
+    
+   # /monitor/api/get-bgp-stats/
 
 ]

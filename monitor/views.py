@@ -106,13 +106,7 @@ def monitorizare_retea(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
 def bgp_stats(request):
-    
-    context = {
-        'num_peers': "num_peers",
-        'num_prefixes_ipv4': "num_prefixes_ipv4",
-        'num_prefixes_ipv6': "num_prefixes_ipv6",
-    }
-    return render(request, 'monitor/bgp-stats.html', context)
+    return render(request, 'monitor/bgp-stats.html')
     
 
 
