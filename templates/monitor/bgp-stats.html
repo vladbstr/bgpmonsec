@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modal Example</title>
+    <title>BGP Statistics</title>
     <link rel="stylesheet" href="{% static 'style.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 </head>
@@ -46,8 +46,8 @@
             <table class="table table-bordered" id="peer-table">
                 <thead>
                     <tr>
-                        <th>Neighbor IP</th>
-                        <th>IPv4 Prefixes</th>
+                        <th>Prefix</th>
+                        <th>ASN</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -58,11 +58,41 @@
             <ul class="list-group" id="top-peers-list"></ul>
         </div>
     </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <h3>IPv4 CIDR Prefix Count</h3>
+            <canvas id="prefixChart"></canvas>
+        </div>
+    </div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+
+
+var prefixChart; // Declare the chart variable outside the function
+
+function fetchBGPStats() {
+    $.ajax({
+        url: '/monitor/api/get-bgp-stats/',
+        method: 'GET',
+        success: function(data) {
+            $('#num-peers').text(data.num_peers);
+            $('#num-prefixes-ipv4').text(data.num_prefixes_ipv4);
+        },
+        error: function() {
+            $('#num-peers').text('Error');
+            $('#num-prefixes-ipv4').text('Error');
+        }
+    });
+}
+
 $(document).ready(function() {
+    // Lista tuturor măștilor de rețea posibile
+    var allMasks = ['8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32'];
+
     function fetchBGPStats() {
         $.ajax({
             url: '/monitor/api/get-bgp-stats/',
@@ -77,10 +107,10 @@ $(document).ready(function() {
             }
         });
     }
-    
+
     function fetchBGPPeers() {
         $.ajax({
-            url: '/monitor/api/get-unique-prefixes/',  // Asigură-te că URL-ul corespunde cu ruta configurată în Django pentru funcția ta
+            url: '/monitor/api/get-unique-prefixes/',
             method: 'GET',
             success: function(data) {
                 var peerTableBody = $('#peer-table tbody');
@@ -94,17 +124,79 @@ $(document).ready(function() {
                         '</tr>'
                     );
                 });
+
+                // Generate chart data
+                var cidrCounts = {};
+                // Inițializează cidrCounts cu toate măștile posibile la 0
+                allMasks.forEach(function(mask) {
+                    cidrCounts[mask] = 0;
+                });
+
+                data.prefixes.forEach(function(prefix) {
+                    var cidr = prefix.network_with_mask.split('/')[1];
+                    if (cidrCounts[cidr] !== undefined) {
+                        cidrCounts[cidr]++;
+                    }
+                });
+
+                var labels = allMasks;
+                var dataCounts = labels.map(function(label) {
+                    return cidrCounts[label];
+                });
+
+                createChart(labels, dataCounts);
             },
             error: function() {
                 console.error('Error fetching BGP peers data');
             }
         });
     }
-    
-    // Apelăm funcțiile la fiecare 30 de secunde
+
+    function createChart(labels, dataCounts) {
+    var ctx = document.getElementById('prefixChart').getContext('2d');
+    if (window.prefixChart) {
+        window.prefixChart.destroy();
+    }
+    window.prefixChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['/8', '/9', '/10', '/11', '/12', '/13', '/14', '/15', '/16', '/17', '/18', '/19', '/20', '/21', '/22', '/23', '/24', '/25', '/26', '/27', '/28', '/29', '/30', '/31', '/32'],
+            datasets: [{
+                label: 'Prefix Count',
+                data: dataCounts,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                x: {
+                    barPercentage: 0.7, // Adjust this value as needed
+                    categoryPercentage: 0.7, // Adjust this value as needed
+                    ticks: {
+                        maxRotation: 40, // Rotate the labels if needed
+                        minRotation: 40 // Rotate the labels if needed
+                    },
+                    grid: {
+                        display: false // Hide grid lines on x-axis
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        display: false // Hide grid lines on y-axis
+                    }
+                }
+            }
+        }
+    });
+}
+
+    // Apelăm funcțiile la fiecare 30 si 25 de secunde
+    setInterval(fetchBGPPeers, 25000);
     setInterval(fetchBGPStats, 30000);
-    setInterval(fetchBGPPeers, 30000);
-    
+
     // Apelăm funcțiile imediat ce pagina se încarcă
     fetchBGPStats();
     fetchBGPPeers();

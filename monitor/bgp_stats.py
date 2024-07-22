@@ -207,14 +207,15 @@ def get_bgp_peers_count():
     cursor = conn.cursor()
 
     query = """
-    SELECT COUNT(DISTINCT t1.neighbor_ip)
+    SELECT count(DISTINCT t1.neighbor_ip)
     FROM bgpmonsec_project.bgp_summary t1
     INNER JOIN (
         SELECT router_id, MAX("timestamp") AS latest_timestamp
         FROM bgpmonsec_project.bgp_summary
         GROUP BY router_id
     ) t2
-    ON t1.router_id = t2.router_id AND t1."timestamp" = t2.latest_timestamp;
+    ON t1.router_id = t2.router_id AND t1."timestamp" = t2.latest_timestamp
+	WHERE t1.state NOT IN ('Active', 'Idle');
     """
 
     cursor.execute(query)
