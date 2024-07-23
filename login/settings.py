@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'account',
     'passwordGenerator',
     'userprofile',
-    'monitor',
+    'monitor'
 ]
 
 MIDDLEWARE = [

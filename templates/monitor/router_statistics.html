@@ -7,7 +7,7 @@
     <title>Router Statistics - {{ router_id }}</title>
     <link rel="stylesheet" href="{% static 'style.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
-    <!-- Adăugați aici orice fișiere CSS sau JS necesare pentru pagina de statistici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="body_router_details">
     <h1 class="blue-background">Router Statistics - {{ router_id }}</h1><br>
@@ -38,31 +38,44 @@
            
         </tbody>
     </table>
-    <!-- Adăugați aici orice conținut și detalii despre statistici pe care doriți să le afișați -->
+    <br><br>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <h3>CPU Load</h3>
+                <canvas id="cpuLoadChart"></canvas>
+            </div>
+            <div class="col-md-6">
+                <h3>Memory Usage</h3>
+                <canvas id="memoryUsageChart"></canvas>
+            </div>
+        </div>
+    </div>
 
-    
-
-
-
-
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <label for="start_time">Start Time:</label>
+                <input type="datetime-local" id="start_time" name="start_time">
+            </div>
+            <div class="col-md-6">
+                <label for="end_time">End Time:</label>
+                <input type="datetime-local" id="end_time" name="end_time">
+            </div>
+        </div>
+        <button id="updateChartButton">Update Charts</button>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script>
         $(document).ready(function() {
-            // Get router_id from the URL
-            console.log('URL:', window.location.href);
-
-            // Get router_id from the URL
             var router_id = window.location.pathname.split('/').filter(Boolean).pop();
 
-            // Log the router_id
-            console.log('Router ID:', router_id);
             $.ajax({
                 url: '/monitor/router_details/' + router_id + '/',
                 type: 'GET',
                 success: function(data) {
-                    console.log(data.version);
-                    // Populate the table with retrieved data
                     var tableBody = $('#routerDetailsTable tbody');
                     var row = $('<tr>');
                     row.append($('<td>').text(data.ip));
@@ -79,6 +92,108 @@
                     console.error('Error retrieving router details:', error);
                 }
             });
+
+            function fetchStats(start_time, end_time) {
+                var url = '/monitor/router_cpu_mem/' + router_id + '/';
+                if (start_time && end_time) {
+                    url += '?start_time=' + encodeURIComponent(start_time) + '&end_time=' + encodeURIComponent(end_time);
+                }
+
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(data) {
+                        console.log('Data received:', data.cpu); // Verifică dacă datele sunt primite corect
+                        updateCharts(data.timestamps, data.cpu, data.memory);
+                    },
+                    error: function(error) {
+                        console.error('Error retrieving router stats:', error);
+                    }
+                });
+            }
+
+            var ctxCpu = document.getElementById('cpuLoadChart').getContext('2d');
+            var ctxMemory = document.getElementById('memoryUsageChart').getContext('2d');
+
+            var cpuLoadChart = new Chart(ctxCpu, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'CPU Load',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute'
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            var memoryUsageChart = new Chart(ctxMemory, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Memory Usage',
+                        data: [],
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute'
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            function updateCharts(timestamps, cpuData, memoryData) {
+                cpuLoadChart.data.labels = timestamps;
+                cpuLoadChart.data.datasets[0].data = cpuData;
+                cpuLoadChart.update();
+
+                memoryUsageChart.data.labels = timestamps;
+                memoryUsageChart.data.datasets[0].data = memoryData;
+                memoryUsageChart.update();
+            }
+
+            $('#updateChartButton').click(function() {
+                console.log('Update button clicked');
+                var start_time = $('#start_time').val();
+                var end_time = $('#end_time').val();
+                fetchStats(start_time, end_time);
+            });
+
+            fetchStats();
+            setInterval(function() {
+                var start_time = $('#start_time').val();
+                var end_time = $('#end_time').val();
+                fetchStats(start_time, end_time);
+            }, 30000);  // Actualizează la fiecare 30 de secunde
         });
     </script>
 </body>
