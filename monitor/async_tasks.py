@@ -4,6 +4,7 @@ import re
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
+from pythonping import ping
 
 DSN = 'dbname=bgpmonsec user=bgpmonsec_user password=admin host=127.0.0.1 port=5432'
 
@@ -128,7 +129,60 @@ async def get_router_info_cpu_mem_spec_all_routers():
                 sst_timestamp = datetime.now()
                 await insert_cpu_memory_data(router_id, cpu_info, memory_info, sst_timestamp)
 
+
+async def check_router_status(ip_router):
+    loop = asyncio.get_event_loop()
+    response_list = await loop.run_in_executor(None, ping, ip_router, 2, 1)
+    return 200 if any(response.success for response in response_list) else 500
+
+async def update_router_status(ip_router, status):
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _update_router_status, ip_router, status)
+
+def _update_router_status(ip_router, status):
+    conn = psycopg2.connect(DSN)
+
+    cursor = conn.cursor()
+
+    # Fetch current downtime value
+    cursor.execute('SELECT downtime FROM public."ROUTERS_INPUT" WHERE "IP" = %s', (ip_router,))
+    current_downtime = cursor.fetchone()[0]
+
+    # Determine new status and downtime values
+    new_status = 'active' if status == 200 else 'inactive'
+    new_downtime = current_downtime if new_status == 'inactive' and current_downtime else datetime.now() if new_status == 'inactive' else None
+
+    # Update the router status and downtime
+    cursor.execute('UPDATE public."ROUTERS_INPUT" SET r_state = %s, downtime = %s WHERE "IP" = %s', (new_status, new_downtime, ip_router))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+async def extract_and_update_router_details():
+    loop = asyncio.get_event_loop()
+    r_details = await loop.run_in_executor(None, _extract_routers_details)
+    tasks = [process_router(router) for router in r_details]
+    await asyncio.gather(*tasks)
+
+def _extract_routers_details():
+    conn = psycopg2.connect(DSN)
+    cursor = conn.cursor()
+    cursor.execute('SELECT "IP" FROM public."ROUTERS_INPUT"')
+    r_details = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return r_details
+
+async def process_router(router):
+    ip_router = router[0]
+    status = await check_router_status(ip_router)
+    await update_router_status(ip_router, status)
+
+
+
 async def periodic_task(interval, coro):
     while True:
         await coro()
         await asyncio.sleep(interval)
+
+

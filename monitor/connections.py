@@ -263,3 +263,32 @@ def get_router_info(router_id, ip, username, password, cursor,conn):
         # Închide conexiunea SSH
         net_connect.disconnect()
 
+def fetch_router_status_and_time(router_id):
+    conn = database_connection()
+    cursor = conn.cursor()
+
+    # Fetch the status from the ROUTERS_INPUT table
+    cursor.execute('SELECT r_state, downtime FROM public."ROUTERS_INPUT" WHERE router_id = %s', (router_id,))
+    result = cursor.fetchone()
+    status = result[0]
+    downtime = result[1]
+
+    if status == 'active':
+        # Fetch the uptime from the router_details table
+        cursor.execute('SELECT uptime FROM bgpmonsec_project."router_details" WHERE router_id = %s', (router_id,))
+        uptime = cursor.fetchone()[0]
+        time_info = uptime
+    else:
+        # Calculate the downtime
+        # Calculate the downtime
+        current_time = datetime.datetime.now()
+        downtime_duration = current_time - downtime
+        days = downtime_duration.days
+        hours, remainder = divmod(downtime_duration.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        time_info = f"{days} days {hours} hours{minutes} minutes"
+    cursor.close()
+    conn.close()
+    return status, time_info
+
+

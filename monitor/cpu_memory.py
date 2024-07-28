@@ -145,7 +145,6 @@ def extract_cpu_percentage(cpu_str):
     return None
 
 def get_router_stats(request, router_id):
-    print('a ajuns aici')
     cursor = conn.cursor()
 
     end_time = datetime.now()
@@ -177,7 +176,7 @@ def get_router_stats(request, router_id):
         'cpu': cpu,
         'memory': memory
     }
-    print(data)
+    #print(data)
     #print(data)
     return JsonResponse(data)
 

@@ -62,7 +62,7 @@ def loginuser(request):
         if user is not None:
             login(request, user)
             messages.success(request, " Successfully logged in")
-            return redirect('/')
+            return redirect('/monitor/monitor')
         else:
             messages.error(request, " Invalid Credentials, Please try again")
             return render(request, 'account/home.html')

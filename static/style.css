@@ -115,3 +115,37 @@ h1 {
     margin-bottom: 10px;
     color: green;
 }
+
+
+.status-circle {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    margin: 0 auto;
+}
+
+#statusContainer {
+    text-align: center;
+    margin-top: 20px;
+}
+
+#statusCircle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: inline-block;
+    line-height: 50px;
+}
+
+#statusText {
+    margin-top: 10px;
+    font-size: 16px;
+    color: white;
+}

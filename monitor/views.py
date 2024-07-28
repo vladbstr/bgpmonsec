@@ -14,7 +14,7 @@ from django.db import IntegrityError
 from django import forms
 import psycopg2
 import json
-from .connections import test_ssh_connection, generate_router_id, extract_routers_details, process_router_details
+from .connections import test_ssh_connection, generate_router_id, extract_routers_details, process_router_details, fetch_router_status_and_time
 from .bgp_stats import get_bgp_peers_count, get_total_prefixes_count_latest, fetch_bgp_summary_all_routers
 
 @csrf_exempt
@@ -108,7 +108,9 @@ def monitorizare_retea(request):
 def bgp_stats(request):
     return render(request, 'monitor/bgp-stats.html')
     
-
+def router_uptime(request, router_id):
+    status, time_info = fetch_router_status_and_time(router_id)
+    return JsonResponse({'status': status, 'time_info': time_info})
 
 def router_statistics(request, router_id):
     return render(request, 'monitor/router_statistics.html', {'router_id': router_id})

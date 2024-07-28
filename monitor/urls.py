@@ -19,7 +19,8 @@ urlpatterns = [
     path('router_details/<str:router_id>/', views.router_details, name='router_details'),
     path('bgp-stats/', views.bgp_stats, name='bgp_stats'),
     path('api/get-bgp-stats/', views.get_bgp_stats, name='get_bgp_stats'),
-    path('api/get-unique-prefixes/', get_unique_prefixes, name='get_unique_prefixes')
+    path('api/get-unique-prefixes/', get_unique_prefixes, name='get_unique_prefixes'),
+    path('router_status/<str:router_id>/', views.router_uptime, name='router_uptime'),
 
     
    # /monitor/api/get-bgp-stats/

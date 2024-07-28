@@ -12,13 +12,27 @@
 <body class="body_router_details">
     <h1 class="blue-background">Router Statistics - {{ router_id }}</h1><br>
     <nav class="navbar navbar-expand-md navbar-dark bg-dark">
-        <a href="/monitor/monitor" class="col-xs-4 navbar-brand">Logo</a>
+        <a href="/monitor/monitor" class="navbar-brand">
+            <img src="{% static 'logo.png' %} " alt="Logo" style="height: 50px;">
+        </a>
+    
+    
         <ul class=" col-xs-4 navbar-nav mx-auto">
-          <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+            <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
           <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
           <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
           <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
         </ul>
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <img src="{% static 'default.png' %}" alt="User Icon" style="width: 20px; height: 20px;">
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+                <a class="dropdown-item" href="/changepass">Change Password</a>
+                <a class="dropdown-item" href="/handlelogout">Log Out</a>
+            </div>
+        </div>
       </nav>
     <br><br>
     <table border="1" id="routerDetailsTable">
@@ -30,7 +44,6 @@
                 <th>Memory</th>
                 <th>Model</th>
                 <th>Serial Number</th>
-                <th>Uptime</th>
                 <th>version</th>
             </tr>
         </thead>
@@ -38,6 +51,12 @@
            
         </tbody>
     </table>
+    <br><br>
+    <div class="Container">
+        <div id="routerStatus" class="status-circle">
+        <span id="statusText"></span>
+    </div></div>
+    
     <br><br>
     <div class="container">
         <div class="row">
@@ -65,45 +84,48 @@
         </div>
         <button id="updateChartButton">Update Charts</button>
     </div>
+    
 
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script>
         $(document).ready(function() {
-            var router_id = window.location.pathname.split('/').filter(Boolean).pop();
-
-            $.ajax({
-                url: '/monitor/router_details/' + router_id + '/',
-                type: 'GET',
-                success: function(data) {
-                    var tableBody = $('#routerDetailsTable tbody');
-                    var row = $('<tr>');
-                    row.append($('<td>').text(data.ip));
-                    row.append($('<td>').text(data.hostname));
-                    row.append($('<td>').text(data.ios));
-                    row.append($('<td>').text(data.memory));
-                    row.append($('<td>').text(data.model));
-                    row.append($('<td>').text(data.serial));
-                    row.append($('<td>').text(data.uptime));
-                    row.append($('<td>').text(data.version));
-                    tableBody.append(row);
-                },
-                error: function(error) {
-                    console.error('Error retrieving router details:', error);
-                }
-            });
-
+            function fetchRouterDetails() {
+                var router_id = window.location.pathname.split('/').filter(Boolean).pop();
+    
+                $.ajax({
+                    url: '/monitor/router_details/' + router_id + '/',
+                    type: 'GET',
+                    success: function(data) {
+                        var tableBody = $('#routerDetailsTable tbody');
+                        tableBody.empty();
+                        var row = $('<tr>');
+                        row.append($('<td>').text(data.ip));
+                        row.append($('<td>').text(data.hostname));
+                        row.append($('<td>').text(data.ios));
+                        row.append($('<td>').text(data.memory));
+                        row.append($('<td>').text(data.model));
+                        row.append($('<td>').text(data.serial));
+                        row.append($('<td>').text(data.version));
+                        tableBody.append(row);
+                    },
+                    error: function(error) {
+                        console.error('Error retrieving router details:', error);
+                    }
+                });
+            }
+    
             function fetchStats(start_time, end_time) {
+                var router_id = window.location.pathname.split('/').filter(Boolean).pop();
                 var url = '/monitor/router_cpu_mem/' + router_id + '/';
                 if (start_time && end_time) {
                     url += '?start_time=' + encodeURIComponent(start_time) + '&end_time=' + encodeURIComponent(end_time);
                 }
-
+    
                 $.ajax({
                     url: url,
                     type: 'GET',
                     success: function(data) {
-                        console.log('Data received:', data.cpu); // Verifică dacă datele sunt primite corect
                         updateCharts(data.timestamps, data.cpu, data.memory);
                     },
                     error: function(error) {
@@ -111,10 +133,10 @@
                     }
                 });
             }
-
+    
             var ctxCpu = document.getElementById('cpuLoadChart').getContext('2d');
             var ctxMemory = document.getElementById('memoryUsageChart').getContext('2d');
-
+    
             var cpuLoadChart = new Chart(ctxCpu, {
                 type: 'line',
                 data: {
@@ -142,7 +164,7 @@
                     }
                 }
             });
-
+    
             var memoryUsageChart = new Chart(ctxMemory, {
                 type: 'line',
                 data: {
@@ -170,31 +192,64 @@
                     }
                 }
             });
-
+    
             function updateCharts(timestamps, cpuData, memoryData) {
                 cpuLoadChart.data.labels = timestamps;
                 cpuLoadChart.data.datasets[0].data = cpuData;
                 cpuLoadChart.update();
-
+    
                 memoryUsageChart.data.labels = timestamps;
                 memoryUsageChart.data.datasets[0].data = memoryData;
                 memoryUsageChart.update();
             }
+    
+            function updateStatusCircle(status, timeInfo) {
+            var circle = document.getElementById('routerStatus');
+            var text = document.getElementById('statusText');
+            console.log(status,timeInfo)
+            if (status === 'active') 
 
+            {
+                circle.style.backgroundColor = 'green';
+                text.innerText = 'Uptime: ' + timeInfo;
+            } 
+            
+            else if (status === 'inactive') 
+
+            {
+                circle.style.backgroundColor = 'red';
+                text.innerText = 'Downtime: ' + timeInfo;
+            }
+
+        }
+    
+            function fetchRouterStatus() {
+                var routerId = window.location.pathname.split('/').filter(Boolean).pop();
+                
+                fetch(`/monitor/router_status/${routerId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        updateStatusCircle(data.status, data.time_info);
+                    })
+                    .catch(error => console.error('Error fetching router status:', error));
+            }
+    
+            function updateAll() {
+                var start_time = $('#start_time').val();
+                var end_time = $('#end_time').val();
+                fetchRouterDetails();
+                fetchStats(start_time, end_time);
+                fetchRouterStatus();
+            }
+    
             $('#updateChartButton').click(function() {
-                console.log('Update button clicked');
-                var start_time = $('#start_time').val();
-                var end_time = $('#end_time').val();
-                fetchStats(start_time, end_time);
+                updateAll();
             });
-
-            fetchStats();
-            setInterval(function() {
-                var start_time = $('#start_time').val();
-                var end_time = $('#end_time').val();
-                fetchStats(start_time, end_time);
-            }, 30000);  // Actualizează la fiecare 30 de secunde
+    
+            updateAll();
+            setInterval(updateAll, 30000); // Update every 30 seconds
         });
     </script>
+    
 </body>
 </html>
