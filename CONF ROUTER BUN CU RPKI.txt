@@ -1,0 +1,158 @@
+Current configuration : 1562 bytes
+!
+! Last configuration change at 15:41:30 UTC Mon Sep 9 2024
+!
+version 16.7
+service timestamps debug datetime msec
+service timestamps log datetime msec
+platform qfp utilization monitor load 80
+no platform punt-keepalive disable-kernel-core
+platform console serial
+!
+hostname Router
+!
+boot-start-marker
+boot-end-marker
+!
+!
+!
+no aaa new-model
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+subscriber templating
+!
+!
+!
+!
+!
+!
+!
+multilink bundle-name authenticated
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+license udi pid CSR1000V sn 9J9MRT8FP8R
+no license smart enable
+diagnostic bootup level minimal
+!
+spanning-tree extend system-id
+!
+!
+!
+!
+redundancy
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+interface GigabitEthernet1
+ ip address dhcp
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet2
+ ip address 192.168.0.2 255.255.255.252
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet3
+ no ip address
+ shutdown
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet4
+ no ip address
+ shutdown
+ negotiation auto
+ no mop enabled
+ no mop sysid
+!
+router bgp 10
+ bgp log-neighbor-changes
+ bgp rpki server tcp 192.168.62.129 port 3323 refresh 300
+ network 5.5.5.0 mask 255.255.255.0
+ neighbor 192.168.0.1 remote-as 14618
+!
+ip forward-protocol nd
+ip http server
+ip http authentication local
+ip http secure-server
+ip route 5.5.5.0 255.255.255.0 Null0
+!
+!
+!
+!
+!
+!
+control-plane
+!
+!
+!
+!
+!
+!
+line con 0
+ stopbits 1
+line vty 0 4
+ login
+!
+wsma agent exec
+!
+wsma agent config
+!
+wsma agent filesys
+!
+wsma agent notify
+!
+!
+end

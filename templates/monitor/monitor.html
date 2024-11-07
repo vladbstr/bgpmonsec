@@ -22,7 +22,7 @@
 
     <ul class=" col-xs-4 navbar-nav mx-auto">
         <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
-      <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
+      <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
       <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
       <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
     </ul>
@@ -103,6 +103,44 @@
         </div>
     </div>
 </div>
+
+<!-- Modify Modal -->
+<div class="modal fade" id="modifyModal" tabindex="-1" role="dialog" aria-labelledby="modifyModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modifyModalLabel">Modify Router</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="modifyForm">
+                    <div class="form-group">
+                        <label for="modify-ip">IP:</label>
+                        <input type="text" class="form-control" id="modify-ip" name="ip" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modify-username">Username:</label>
+                        <input type="text" class="form-control" id="modify-username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modify-password">Password:</label>
+                        <input type="password" class="form-control" id="modify-password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="modify-description">Description:</label>
+                        <input type="text" class="form-control" id="modify-description" name="description" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
 <script>
     function afiseazaDate() {
     // Folosește fetch pentru a face un request către server
@@ -121,6 +159,7 @@
                 const cell4 = newRow.insertCell(3);
                 const cell5 = newRow.insertCell(4);
                 const cell6 = newRow.insertCell(5);
+                const cell7 = newRow.insertCell(6);
 
                 cell1.innerHTML = router.router_id;
                 cell2.innerHTML = router.IP;
@@ -139,6 +178,7 @@
                 } else if (router.r_state === 'inactive') {
                     newRow.classList.add('table-danger');
                 };
+                
                 const statisticsButton = document.createElement('button');
                 statisticsButton.innerHTML = 'Router Statistics';
                 statisticsButton.classList.add('btn', 'btn-info');
@@ -147,7 +187,15 @@
                     openStatisticsPage(router.router_id);
                 };
                 cell6.appendChild(statisticsButton);
+                const modifyButton = document.createElement('button');
+                modifyButton.innerHTML = 'Modify';
+                modifyButton.classList.add('btn', 'btn-warning');
+                modifyButton.onclick = function() {
+                    openModifyModal(router.router_id, router.IP,router.username, router.password, router.description);
+                };
+                cell7.appendChild(modifyButton);
             });
+            
         })
         .catch(error => console.error('Error fetching data:', error));
     }
@@ -214,8 +262,6 @@
     function submitForm() {
         var formData = {
             ip: $('#ip').val(),
-            username: $('#username').val(),
-            password: $('#password').val(),
             description: $('#description').val()
         };
 
@@ -242,6 +288,49 @@
 
     // Setează intervalul pentru a apela funcția la fiecare 5 secunde
     setInterval(updateData, 5000);
+
+
+    function openModifyModal(routerId, ip, username, password, description) {
+    // Set the router ID in a hidden field or a global variable
+    window.currentRouterId = routerId;
+
+    // Fill form inputs with current data
+    document.getElementById('modify-ip').value = ip;
+    document.getElementById('modify-description').value = description;
+
+    // Show the modify modal
+    $('#modifyModal').modal('show');
+}
+
+document.getElementById('modifyForm').onsubmit = function(event) {
+    event.preventDefault();
+    modifyRouter(window.currentRouterId);
+};
+
+function modifyRouter(routerId) {
+    var formData = {
+        routerId: routerId,
+        ip: document.getElementById('modify-ip').value,
+        username: document.getElementById('modify-username').value,
+        password: document.getElementById('modify-password').value,
+        description: document.getElementById('modify-description').value
+    };
+
+    fetch('/monitor/modify-router/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Router modified successfully', data);
+        $('#modifyModal').modal('hide');
+        afiseazaDate();  // Refresh the table data
+    })
+    .catch(error => console.error('Error modifying router:', error));
+}
 
 </script>
 <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>

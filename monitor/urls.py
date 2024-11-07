@@ -18,9 +18,11 @@ urlpatterns = [
     path('router_cpu_mem/<str:router_id>/', get_router_stats, name='router_stats'),
     path('router_details/<str:router_id>/', views.router_details, name='router_details'),
     path('bgp-stats/', views.bgp_stats, name='bgp_stats'),
+    path('rpki-servers-stats/', views.rpki_servers_stats, name='rpki-servers-stats'),
     path('api/get-bgp-stats/', views.get_bgp_stats, name='get_bgp_stats'),
     path('api/get-unique-prefixes/', get_unique_prefixes, name='get_unique_prefixes'),
     path('router_status/<str:router_id>/', views.router_uptime, name='router_uptime'),
+    path('modify-router/', views.modify_router, name='modify_router'),
 
     
    # /monitor/api/get-bgp-stats/

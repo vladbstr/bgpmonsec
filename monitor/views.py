@@ -43,12 +43,48 @@ def delete_router(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
     
+
+@csrf_exempt
+def modify_router(request):
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        router_id = str(data.get('routerId'))
+        ip = data.get('ip')
+        username = data.get('username')
+        password = data.get('password')
+        description = data.get('description')
+
+        print(data)
+
+        conn = psycopg2.connect(
+            database="bgpmonsec",
+            user="bgpmonsec_user",
+            password="admin",
+            host="127.0.0.1",
+            port="5432"
+        )
+        cursor = conn.cursor()
+        cursor.execute(
+            'UPDATE public."ROUTERS_INPUT" SET "IP" = %s, username = %s, password = %s, description = %s WHERE router_id = %s',
+            (ip, username, password, description, router_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return JsonResponse({'status': 'success', 'message': 'Router modified successfully!'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
 def show_routers_details(request):
     # Execută un query SQL pentru a prelua toate datele din tabel
     r_details = extract_routers_details()
     data_routere = [{'IP': row[0].split(',')[0].replace("(",""),'description': row[0].split(',')[1], 'r_state': row[0].split(',')[2], 'router_id': row[0].split(',')[3].replace(")","")} for row in r_details]
     # Transmite datele către șablon
     return JsonResponse(data_routere, safe=False)
+
+
+
 
 @csrf_exempt
 def salveaza_datele(request):
@@ -118,6 +154,9 @@ def router_statistics(request, router_id):
 def router_details(request,router_id):
     r_details=process_router_details(router_id)
     return JsonResponse(r_details)
+
+def rpki_servers_stats(request):
+    return render(request, 'monitor/rpki-servers.html', {'titlu': 'RPKI SERVER STATUS'})
 
 @require_GET
 def get_bgp_stats(request):

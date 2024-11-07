@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Example</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+<header>
+    <a>RPKI SERVERS</a>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <style>
+        .container {
+            margin-top: 20px;
+        }
+        .card {
+            margin-bottom: 10px;
+        }
+        .card-header {
+            font-weight: bold;
+        }
+    </style>
+</header>
+<body>
+ <!-- Navigation -->
+ <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <a href="/monitor/monitor" class="navbar-brand">
+        <img src="{% static 'logo.png' %} " alt="Logo" style="height: 50px;">
+    </a>
+
+
+    <ul class=" col-xs-4 navbar-nav mx-auto">
+        <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+        <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+    </ul>
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <img src="{% static 'default.png' %}" alt="User Icon" style="width: 20px; height: 20px;">
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+            <a class="dropdown-item" href="/changepass">Change Password</a>
+            <a class="dropdown-item" href="/handlelogout">Log Out</a>
+        </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h1 class="text-center">RPKI Server Status</h1>
+    <div id="statusContainer"></div>
+</div>
+
+
+
+    <script>
+        async function fetchRPKIStatus() {
+            try {
+                // Fetch the data from the RPKI server
+                const response = await fetch('http://192.168.62.129:8323/status');
+                const textData = await response.text();
+
+                // Parse the text data into a more structured JSON format
+                const dataLines = textData.split('\n');
+                const jsonData = {};
+                dataLines.forEach(line => {
+                    const [key, value] = line.split(':').map(item => item && item.trim());
+                    if (key && value) {
+                        jsonData[key] = value;
+                    }
+                });
+
+                // Display the parsed data
+                displayData(jsonData);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        function displayData(data) {
+            const container = document.getElementById('statusContainer');
+            container.innerHTML = '';  // Clear any previous data
+
+            for (const [key, value] of Object.entries(data)) {
+                const card = document.createElement('div');
+                card.className = 'card';
+
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'card-header';
+                cardHeader.innerText = key;
+
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body';
+                cardBody.innerText = value;
+
+                card.appendChild(cardHeader);
+                card.appendChild(cardBody);
+                container.appendChild(card);
+            }
+        }
+
+        // Fetch and display the RPKI status when the page loads
+        fetchRPKIStatus();
+    </script>
+</body>
+</html>
