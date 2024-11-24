@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'account',
     'passwordGenerator',
     'userprofile',
-    'monitor'
+    'monitor',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -52,8 +53,23 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
+MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "OPTIONS",
+]
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+    "x-requested-with",
+]
 ROOT_URLCONF = 'login.urls'
 
 TEMPLATES = [
@@ -70,6 +86,10 @@ TEMPLATES = [
             ],
         },
     },
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://192.168.62.129:8323",
 ]
 
 WSGI_APPLICATION = 'login.wsgi.application'

@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/get-unique-prefixes/', get_unique_prefixes, name='get_unique_prefixes'),
     path('router_status/<str:router_id>/', views.router_uptime, name='router_uptime'),
     path('modify-router/', views.modify_router, name='modify_router'),
+    path('rpki-data/', views.fetch_rpki_data, name='fetch_rpki_data'),
 
     
    # /monitor/api/get-bgp-stats/

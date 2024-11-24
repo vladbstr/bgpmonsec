@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modal Example</title>
+    <title>RPKI Servers</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'style.css' %}">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
-</head>
-<header>
-    <a>RPKI SERVERS</a>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <style>
         .container {
@@ -22,16 +18,17 @@
             font-weight: bold;
         }
     </style>
-</header>
+</head>
 <body>
- <!-- Navigation -->
- <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+<header>
+    <a>RPKI SERVERS</a>
+</header>
+
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
     <a href="/monitor/monitor" class="navbar-brand">
-        <img src="{% static 'logo.png' %} " alt="Logo" style="height: 50px;">
+        <img src="{% static 'logo.png' %}" alt="Logo" style="height: 50px;">
     </a>
-
-
-    <ul class=" col-xs-4 navbar-nav mx-auto">
+    <ul class="col-xs-4 navbar-nav mx-auto">
         <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
         <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
         <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
@@ -47,63 +44,85 @@
             <a class="dropdown-item" href="/handlelogout">Log Out</a>
         </div>
     </div>
-  </nav>
+</nav>
 
-  <div class="container">
+<div class="container">
     <h1 class="text-center">RPKI Server Status</h1>
-    <div id="statusContainer"></div>
+    
+    <!-- Bulina principală -->
+    <div id="serverStatus" class="text-center my-4">
+        <span id="statusIndicator" class="badge badge-secondary" style="font-size: 1.5em; padding: 1em;">Checking...</span>
+    </div>
+
+    <div class="text-center mb-4">
+        <a id="redirectButton" href="http://192.168.62.129:8323/" target="_blank" class="btn btn-primary btn-lg" style="display: inline-block;">
+            Go to Server
+        </a>
+    </div>
+
+    <div id="statusContainer">
+        <!-- Datele vor fi adăugate aici din JavaScript -->
+    </div>
 </div>
 
+<script>
+    document.addEventListener('DOMContentLoaded', async function () {
+        const statusContainer = document.getElementById('statusContainer');
+        const statusIndicator = document.getElementById('statusIndicator');
 
+        try {
+            // Trimite cererea la endpoint-ul Django
+            const response = await fetch('/monitor/rpki-data/');
+            const result = await response.json();
+            console.log(result.essential_data)
 
-    <script>
-        async function fetchRPKIStatus() {
-            try {
-                // Fetch the data from the RPKI server
-                const response = await fetch('http://192.168.62.129:8323/status');
-                const textData = await response.text();
+            if (result.status === 'success') {
+                // Schimbă bulina în verde și afișează "SERVER RUNNING"
+                statusIndicator.className = 'badge badge-success';
+                statusIndicator.textContent = 'SERVER RUNNING';
 
-                // Parse the text data into a more structured JSON format
-                const dataLines = textData.split('\n');
-                const jsonData = {};
-                dataLines.forEach(line => {
-                    const [key, value] = line.split(':').map(item => item && item.trim());
-                    if (key && value) {
-                        jsonData[key] = value;
-                    }
-                });
+                // Creează carduri pentru fiecare pereche cheie-valoare
+                for (const [key, value] of Object.entries(result.essential_data)) {
+                    console.log(key,value)
+                    const card = document.createElement('div');
+                    card.className = 'card';
 
-                // Display the parsed data
-                displayData(jsonData);
-            } catch (error) {
-                console.error('Error fetching data:', error);
+                    const cardHeader = document.createElement('div');
+                    cardHeader.className = 'card-header';
+                    cardHeader.textContent = key;
+
+                    const cardBody = document.createElement('div');
+                    cardBody.className = 'card-body';
+                    cardBody.textContent = value;
+
+                    card.appendChild(cardHeader);
+                    card.appendChild(cardBody);
+                    statusContainer.appendChild(card);
+                }
+            } else {
+                // Schimbă bulina în roșu și afișează "SERVER ERROR"
+                statusIndicator.className = 'badge badge-danger';
+                statusIndicator.textContent = 'SERVER ERROR';
+
+                // Afișează mesajul de eroare
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger';
+                errorDiv.textContent = `Error: ${result.message}`;
+                statusContainer.appendChild(errorDiv);
             }
+        } catch (error) {
+            // Schimbă bulina în roșu și afișează "SERVER ERROR"
+            statusIndicator.className = 'badge badge-danger';
+            statusIndicator.textContent = 'SERVER ERROR';
+
+            // Afișează eroarea dacă cererea eșuează
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger';
+            errorDiv.textContent = `Error fetching data: ${error.message}`;
+            statusContainer.appendChild(errorDiv);
         }
+    });
+</script>
 
-        function displayData(data) {
-            const container = document.getElementById('statusContainer');
-            container.innerHTML = '';  // Clear any previous data
-
-            for (const [key, value] of Object.entries(data)) {
-                const card = document.createElement('div');
-                card.className = 'card';
-
-                const cardHeader = document.createElement('div');
-                cardHeader.className = 'card-header';
-                cardHeader.innerText = key;
-
-                const cardBody = document.createElement('div');
-                cardBody.className = 'card-body';
-                cardBody.innerText = value;
-
-                card.appendChild(cardHeader);
-                card.appendChild(cardBody);
-                container.appendChild(card);
-            }
-        }
-
-        // Fetch and display the RPKI status when the page loads
-        fetchRPKIStatus();
-    </script>
 </body>
 </html>

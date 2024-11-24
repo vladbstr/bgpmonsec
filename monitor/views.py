@@ -16,6 +16,8 @@ import psycopg2
 import json
 from .connections import test_ssh_connection, generate_router_id, extract_routers_details, process_router_details, fetch_router_status_and_time
 from .bgp_stats import get_bgp_peers_count, get_total_prefixes_count_latest, fetch_bgp_summary_all_routers
+import requests
+from django.shortcuts import render
 
 @csrf_exempt
 def delete_router(request):
@@ -169,3 +171,49 @@ def get_bgp_stats(request):
         'num_prefixes_ipv4': num_prefixes_ipv4,
     }
     return JsonResponse(data)
+
+import requests
+from django.http import JsonResponse
+
+def fetch_rpki_data(request):
+    url = "http://192.168.62.129:8323/status"
+    try:
+        # Preia datele de la serverul RPKI
+        response = requests.get(url)
+        response.raise_for_status()
+        text_data = response.text
+
+        # Parsează datele
+        lines = text_data.split('\n')  # Împarte datele pe linii
+        parsed_data = {}
+
+        for line in lines:
+            # Ignoră liniile goale și comentariile
+            if line.strip() and not line.startswith('//'):
+                # Împarte linia pe baza primului ":"
+                if ':' in line:
+                    key, value = line.split(':', 1)  # Împarte doar pe primul ":"
+                    parsed_data[key.strip()] = value.strip()
+
+        # Verifică dacă datele sunt corect parseate
+        print("Parsed Data:", parsed_data)
+        
+        # Selectează datele esențiale
+        essential_data = {
+            'version':parsed_data['version'],
+            'last-update-start-at': parsed_data['last-update-start-at'],
+            'last-update-start-ago': parsed_data.get('last-update-start-ago'),
+            'last-update-done-at': parsed_data.get('last-update-done-at'),
+            'valid-roas': parsed_data.get('valid-roas'),
+            'vrps': parsed_data.get('vrps'),
+            'rtr-connections': parsed_data.get('rtr-connections'),
+            'rtr-data': parsed_data.get('rtr-data'),
+            'http-connections': parsed_data.get('http-connections'),
+            'http-data': parsed_data.get('http-data'),
+            'http-requests': parsed_data.get('http-requests'),
+        }
+        print(essential_data)
+        return JsonResponse({'status': 'success', 'essential_data': essential_data, 'all_data': parsed_data})
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
