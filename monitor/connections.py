@@ -292,3 +292,28 @@ def fetch_router_status_and_time(router_id):
     return status, time_info
 
 
+import paramiko
+
+def check_rpki_status(ip, username, password):
+    """
+    Verifică dacă RPKI este configurat pe un router.
+    """
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, username=username, password=password)
+
+        # Executăm comanda pentru a verifica configurația BGP
+        stdin, stdout, stderr = ssh.exec_command("show run | section bgp")
+        output = stdout.read().decode().strip()
+        ssh.close()
+
+        # Verificăm dacă RPKI este configurat
+        if "bgp rpki server tcp" in output:
+            return "configured"
+        else:
+            return "not_configured"
+    except Exception as e:
+        return "error"
+
+

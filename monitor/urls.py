@@ -6,6 +6,7 @@ from pathlib import Path
 from .bgp_stats import get_unique_prefixes
 from .cpu_memory import get_router_stats
 
+
 app_name = 'monitor'
 
 urlpatterns = [
@@ -24,6 +25,9 @@ urlpatterns = [
     path('router_status/<str:router_id>/', views.router_uptime, name='router_uptime'),
     path('modify-router/', views.modify_router, name='modify_router'),
     path('rpki-data/', views.fetch_rpki_data, name='fetch_rpki_data'),
+    path('configure_rpki/', views.configure_rpki, name='configure_rpki'),
+    path('check_rpki/', views.check_rpki, name='check_rpki'),
+   
 
     
    # /monitor/api/get-bgp-stats/

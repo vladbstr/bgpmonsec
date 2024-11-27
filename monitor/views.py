@@ -18,6 +18,8 @@ from .connections import test_ssh_connection, generate_router_id, extract_router
 from .bgp_stats import get_bgp_peers_count, get_total_prefixes_count_latest, fetch_bgp_summary_all_routers
 import requests
 from django.shortcuts import render
+import paramiko
+import logging
 
 @csrf_exempt
 def delete_router(request):
@@ -138,6 +140,9 @@ def salveaza_datele(request):
 def monitor(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
+def configure_rpki(request):
+    if request.method == 'GET':
+        return render(request, 'monitor/configure_rpki.html', {'titlu': 'RPKI CHECK'})
 
 
 def monitorizare_retea(request):
@@ -196,7 +201,7 @@ def fetch_rpki_data(request):
                     parsed_data[key.strip()] = value.strip()
 
         # Verifică dacă datele sunt corect parseate
-        print("Parsed Data:", parsed_data)
+        #print("Parsed Data:", parsed_data)
         
         # Selectează datele esențiale
         essential_data = {
@@ -212,8 +217,65 @@ def fetch_rpki_data(request):
             'http-data': parsed_data.get('http-data'),
             'http-requests': parsed_data.get('http-requests'),
         }
-        print(essential_data)
+        #print(essential_data)
         return JsonResponse({'status': 'success', 'essential_data': essential_data, 'all_data': parsed_data})
 
     except requests.exceptions.RequestException as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .connections import test_ssh_connection, check_rpki_status, database_connection
+
+@csrf_exempt
+def check_rpki(request):
+    """
+    Endpoint pentru verificarea RPKI pe un router.
+    Primește router_id, verifică statusul RPKI și returnează JSON cu rezultatul.
+    """
+    if request.method == 'POST':
+        #logger.info("check_rpki called")
+        try:
+            # Decodificăm corpul cererii
+            data = json.loads(request.body)
+            router_id = data.get('router_id')  # Preluăm ID-ul routerului
+
+            if not router_id:
+                return JsonResponse({'status': 'error', 'message': 'Missing router_id'})
+
+            # Conectare la baza de date pentru a obține informațiile routerului
+            conn = database_connection()
+            cursor = conn.cursor()
+
+            cursor.execute('SELECT "IP", username, password FROM public."ROUTERS_INPUT" WHERE router_id = %s', (router_id,))
+            router = cursor.fetchone()
+            cursor.close()
+            conn.close()
+
+            if not router:
+                return JsonResponse({'status': 'error', 'message': 'Router not found'})
+
+            # Extragem informațiile despre router
+            ip_address, username, password = router
+
+            # Verificăm conexiunea SSH
+            ssh_status = test_ssh_connection(ip_address, username, password)
+            if ssh_status != 200:
+                return JsonResponse({'status': 'error', 'message': 'SSH connection failed'})
+
+            # Verificăm dacă RPKI este configurat
+            rpki_status = check_rpki_status(ip_address, username, password)
+
+            return JsonResponse({'status': 'success', 'rpki_status': rpki_status})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+    
+
+
+
+    
+    

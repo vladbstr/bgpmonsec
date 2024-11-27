@@ -1,0 +1,136 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPKI Check</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+<header>
+    <a>RPKI Check</a>
+</header>
+<body>
+ <!-- Navigation -->
+ <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <a href="/monitor/monitor" class="navbar-brand">
+        <img src="{% static 'logo.png' %}" alt="Logo" style="height: 50px;">
+    </a>
+
+    <ul class="col-xs-4 navbar-nav mx-auto">
+        <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+        <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+        <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+    </ul>
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <img src="{% static 'default.png' %}" alt="User Icon" style="width: 20px; height: 20px;">
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+            <a class="dropdown-item" href="/changepass">Change Password</a>
+            <a class="dropdown-item" href="/handlelogout">Log Out</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-5">
+    <h2>Tabel Routere</h2>
+    <table class="table table-striped" id="tabelRoutere">
+        <thead>
+            <tr>
+                <th>ROUTER ID</th>
+                <th>IP</th>
+                <th>Description</th>
+                <th>State</th>
+                <th>RPKI Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Datele sunt generate dinamic -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function afiseazaDate() {
+        const response = await fetch('/monitor/show-routers-details/');
+        const data = await response.json();
+
+        const tabelRoutere = document.getElementById('tabelRoutere').getElementsByTagName('tbody')[0];
+        tabelRoutere.innerHTML = ""; // Curăță tabelul
+
+        data.forEach(router => {
+            const newRow = tabelRoutere.insertRow();
+
+            // Adaugă detalii despre router
+            newRow.insertCell(0).innerText = router.router_id;
+            newRow.insertCell(1).innerText = router.IP;
+            newRow.insertCell(2).innerText = router.description;
+            newRow.insertCell(3).innerText = router.r_state;
+
+            // RPKI Status
+            const rpkiCell = newRow.insertCell(4);
+            rpkiCell.innerHTML = '<span>Checking...</span>';
+
+            // Buton Check RPKI
+            const actionCell = newRow.insertCell(5);
+            const checkButton = document.createElement('button');
+            checkButton.classList.add('btn', 'btn-primary');
+            checkButton.innerText = 'Check RPKI';
+            checkButton.onclick = () => checkRpki(router, rpkiCell);
+            actionCell.appendChild(checkButton);
+        });
+    }
+
+    async function checkRpki(router, rpkiCell) {
+        const response = await fetch('/monitor/check_rpki/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ router_id: router.router_id })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            if (data.rpki_status === 'configured') {
+                rpkiCell.innerHTML = '<span style="color: green;">Configured</span>';
+            } else if (data.rpki_status === 'not_configured') {
+                rpkiCell.innerHTML = `
+                    <span style="color: red;">Not Configured</span>
+                    <a href="#" onclick="configureRpki('${router.router_id}')">Do you want to configure?</a>
+                `;
+            }
+        } else {
+            rpkiCell.innerHTML = `<span style="color: red;">Error: ${data.message}</span>`;
+        }
+    }
+
+    async function configureRpki(routerId) {
+        const response = await fetch('/monitor/configure_rpki/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ router_id: routerId })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('RPKI configured successfully!');
+            afiseazaDate(); // Refresh the table
+        } else {
+            alert('Error configuring RPKI: ' + data.message);
+        }
+    }
+
+    // Load initial data
+    afiseazaDate();
+</script>
+
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+</body>
+</html>

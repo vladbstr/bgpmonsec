@@ -104,24 +104,39 @@ def fetch_bgp_summary(router_id):
         if parsing_bgp:
             #print(line)
             parts = line.split()
-            if parts[0].startswith('*>') and re.search(r'\d', parts[0]):
-                network_with_mask = str(parts[0].lstrip('*>i'))
-                #print(network_with_mask)
+
+            if parts[0].startswith('N*') or parts[0].startswith('I*') or parts[0].startswith('V*'):
+                rpki_flag=str(parts[0].split('*')[0])
+                network_with_mask = str(parts[1])
                 network = network_with_mask.split('/')[0]
-                #print(network_with_mask)
-                #print('hoooooooooooo')
                 mask=network_with_mask.split('/')[1]
-                next_hop = str(parts[1])
-                metric = str(parts[2])
-                locpref = str(parts[3])
+                next_hop = str(parts[2])
+                metric = str(parts[3])
+                locpref = 0
                 weight = str(parts[4])
-                path = str(" ".join(parts[6:]))
+                path = str(" ".join(parts[5:]))
+
+
+            elif parts[0].startswith('i*>') and re.search(r'\d', parts[0]):
+                    
+                    network_with_mask = str(parts[0].lstrip('N*>'))
+                    #print(network_with_mask)
+                    network = network_with_mask.split('/')[0]
+                    #print(network_with_mask)
+                    #print('hoooooooooooo')
+                    mask=network_with_mask.split('/')[1]
+                    next_hop = str(parts[1])
+                    metric = str(parts[2])
+                    locpref = str(parts[3])
+                    weight = str(parts[4])
+                    path = str(" ".join(parts[6:]))
+
             else:
                 path="1"
                 #print(parts)
                 network_with_mask = str(parts[1])
                 network = network_with_mask.split('/')[0]
-                #print(network_with_mask)
+                print(network_with_mask)
                 #print('daaaa')
                 mask=network_with_mask.split('/')[1]
                 next_hop = str(parts[2])
@@ -133,8 +148,8 @@ def fetch_bgp_summary(router_id):
         
 
             cursor.execute(
-                        'INSERT INTO bgpmonsec_project.sh_bgp_ip (router_id, network_with_mask, network, mask, next_hop, metric, locpref, weight, "path", "timestamp") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);',
-                        (router_id, network_with_mask, str(network),mask,next_hop,metric,locpref,weight,path,sst_timestamp)
+                        'INSERT INTO bgpmonsec_project.sh_bgp_ip (router_id, network_with_mask, network, mask, next_hop, metric, locpref, weight, "path", "timestamp", rpki_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);',
+                        (router_id, network_with_mask, str(network),mask,next_hop,metric,locpref,weight,path,sst_timestamp, rpki_flag)
                     )
     conn.commit()
     cursor.close()
