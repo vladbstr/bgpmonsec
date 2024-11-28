@@ -25,6 +25,12 @@
         <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
         <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
     </ul>
+    
+    <button id="alertButton" class="btn btn-warning" onclick="redirectToAlertsPage()" style="position: relative; background-color: transparent; border: none;">
+        <div id="alertTriangle" style="width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 25px solid grey; position: relative;"></div>
+        <span id="alertCount" style="position: absolute; top: -5px; right: -10px; background-color: red; color: white; font-size: 12px; border-radius: 50%; padding: 2px 5px; display: none;"></span>
+    </button>
+    <a>"   "</a>
     <div class="dropdown">
         <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
             <img src="{% static 'default.png' %}" alt="User Icon" style="width: 20px; height: 20px;">
@@ -47,6 +53,7 @@
                 <th>Description</th>
                 <th>State</th>
                 <th>RPKI Status</th>
+                <th>RPKI Server Connection</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -55,16 +62,36 @@
         </tbody>
     </table>
 </div>
+<div class="modal fade" id="rpkiConfigModal" tabindex="-1" role="dialog" aria-labelledby="rpkiConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rpkiConfigModalLabel">Configure RPKI</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Command to configure RPKI:</p>
+                <pre id="rpkiCommand" style="background-color: #f8f9fa; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;"></pre>
+                <button id="pushConfigButton" class="btn btn-primary mt-3">Push Config</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-    async function afiseazaDate() {
+     async function afiseazaDate() {
+        const tabelRoutere = document.getElementById('tabelRoutere').getElementsByTagName('tbody')[0];
+        tabelRoutere.innerHTML = '<tr><td colspan="7" class="text-center">Loading data...</td></tr>';
+
+        // Preia datele despre routere
         const response = await fetch('/monitor/show-routers-details/');
         const data = await response.json();
 
-        const tabelRoutere = document.getElementById('tabelRoutere').getElementsByTagName('tbody')[0];
         tabelRoutere.innerHTML = ""; // Curăță tabelul
 
-        data.forEach(router => {
+        data.forEach(async (router) => {
             const newRow = tabelRoutere.insertRow();
 
             // Adaugă detalii despre router
@@ -73,41 +100,130 @@
             newRow.insertCell(2).innerText = router.description;
             newRow.insertCell(3).innerText = router.r_state;
 
-            // RPKI Status
-            const rpkiCell = newRow.insertCell(4);
-            rpkiCell.innerHTML = '<span>Checking...</span>';
+            // Configurație RPKI (cu "Loading..." implicit)
+            const configCell = newRow.insertCell(4);
+            configCell.innerHTML = '<span>Loading...</span>';
 
-            // Buton Check RPKI
-            const actionCell = newRow.insertCell(5);
-            const checkButton = document.createElement('button');
-            checkButton.classList.add('btn', 'btn-primary');
-            checkButton.innerText = 'Check RPKI';
-            checkButton.onclick = () => checkRpki(router, rpkiCell);
-            actionCell.appendChild(checkButton);
+            // Conexiune RPKI Server (cu "Loading..." implicit)
+            const connectionCell = newRow.insertCell(5);
+            connectionCell.innerHTML = '<span>Loading...</span>';
+
+            // Acțiuni (default)
+            const actionCell = newRow.insertCell(6);
+            actionCell.innerHTML = '<span>Loading...</span>';
+
+            // Verifică automat statusul RPKI
+            const { config_status, connection_status } = await checkRpki(router.router_id, configCell, connectionCell);
+
+            // Actualizează rândul în funcție de condiții
+            if (config_status === 'Not Configured') {
+            newRow.style.backgroundColor = '#f8d7da'; // Roșu deschis
+            actionCell.innerHTML = `<button class="btn btn-primary" onclick="openRpkiModal('${router.router_id}', '${router.IP}')">Configure RPKI</button>`;
+        } else if (config_status === 'Not Supported') {
+            newRow.style.backgroundColor = 'yellow';
+            actionCell.innerHTML = "<span>Can't perform any action</span>";
+        } else if (config_status === 'Configured' && connection_status === 'Connected') {
+            newRow.style.backgroundColor = 'lightgreen';
+            actionCell.innerHTML = '<span>All good</span>';
+        } else if (config_status === 'Configured' && connection_status === 'Disconnected') {
+            newRow.style.backgroundColor = 'lightcoral';
+            actionCell.innerHTML = '<span>Check connection</span>';
+        }
         });
     }
 
-    async function checkRpki(router, rpkiCell) {
-        const response = await fetch('/monitor/check_rpki/', {
+
+    async function openRpkiModal(routerId, routerIp) {
+    const modal = document.getElementById('rpkiConfigModal');
+    const commandElement = document.getElementById('rpkiCommand');
+    const pushButton = document.getElementById('pushConfigButton');
+    const modalTitle = document.getElementById('rpkiConfigModalLabel');
+
+    // Setează titlul și mesajul implicit
+    modalTitle.innerText = "Configure RPKI";
+    commandElement.textContent = "Loading ASN...";
+
+    try {
+        // Preia ASN-ul de la server
+        const response = await fetch('/monitor/get_router_asn/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ router_id: router.router_id })
+            body: JSON.stringify({ router_id: routerId })
         });
 
         const data = await response.json();
+
         if (data.status === 'success') {
-            if (data.rpki_status === 'configured') {
-                rpkiCell.innerHTML = '<span style="color: green;">Configured</span>';
-            } else if (data.rpki_status === 'not_configured') {
-                rpkiCell.innerHTML = `
-                    <span style="color: red;">Not Configured</span>
-                    <a href="#" onclick="configureRpki('${router.router_id}')">Do you want to configure?</a>
-                `;
-            }
+            const asn = data.asn;
+
+            // Generează comanda de configurare
+            const command = `conf t\nrouter bgp ${asn}\nbgp rpki server tcp ${routerIp} port 3323 refresh 300\nend\nwr`;
+            commandElement.textContent = command;
+
+            // Setează acțiunea butonului "Push Config"
+            pushButton.onclick = () => pushRpkiConfig(routerId, routerIp);
         } else {
-            rpkiCell.innerHTML = `<span style="color: red;">Error: ${data.message}</span>`;
+            commandElement.textContent = "Error: Unable to fetch ASN.";
+        }
+    } catch (error) {
+        commandElement.textContent = "Error: Unable to fetch ASN.";
+    }
+
+    // Afișează modalul
+    $('#rpkiConfigModal').modal('show');
+}
+
+async function pushRpkiConfig(routerId, routerIp) {
+    const asn = document.getElementById('rpkiCommand').textContent.match(/router bgp (\d+)/)[1]; // Extrage ASN-ul din comandă
+
+    const response = await fetch('/monitor/configure_rpki/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ router_id: routerId, ip_address: routerIp, asn: asn })
+    });
+
+    const data = await response.json();
+    if (data.status === 'success') {
+        alert('RPKI configured successfully!');
+        $('#rpkiConfigModal').modal('hide');
+        afiseazaDate(); // Refresh the table
+    } else {
+        alert('Error configuring RPKI: ' + data.message);
+    }
+}
+
+    async function checkRpki(routerId, configCell, connectionCell) {
+        try {
+            const response = await fetch('/monitor/check_rpki/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ router_id: routerId })
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                // Actualizează configurația și conexiunea
+                configCell.innerHTML = `<span>${data.config_status}</span>`;
+                connectionCell.innerHTML = `<span>${data.connection_status}</span>`;
+                return {
+                    config_status: data.config_status,
+                    connection_status: data.connection_status,
+                };
+            } else {
+                configCell.innerHTML = `<span style="color: red;">Error</span>`;
+                connectionCell.innerHTML = `<span style="color: red;">${data.message}</span>`;
+                return { config_status: 'Error', connection_status: 'Error' };
+            }
+        } catch (error) {
+            configCell.innerHTML = `<span style="color: red;">Error</span>`;
+            connectionCell.innerHTML = `<span style="color: red;">Error fetching data</span>`;
+            return { config_status: 'Error', connection_status: 'Error' };
         }
     }
+
+    // Încarcă datele automat la accesarea paginii
+    window.onload = afiseazaDate;
+
 
     async function configureRpki(routerId) {
         const response = await fetch('/monitor/configure_rpki/', {
@@ -124,9 +240,37 @@
             alert('Error configuring RPKI: ' + data.message);
         }
     }
+    ////////////////////////////////////////////////ALERT ZONE/////////////////////
+    async function fetchUnreadAlertsCount() {
+    const response = await fetch('/monitor/get_unread_alerts_count/');
+    const data = await response.json();
 
-    // Load initial data
-    afiseazaDate();
+    if (data.status === 'success') {
+        const count = data.count;
+        const alertTriangle = document.getElementById('alertTriangle');
+        const alertCount = document.getElementById('alertCount');
+
+        if (count > 0) {
+            alertTriangle.style.borderBottomColor = 'red';
+            alertCount.style.display = 'inline';
+            alertCount.innerText = count;
+        } else {
+            alertTriangle.style.borderBottomColor = 'grey';
+            alertCount.style.display = 'none';
+        }
+    } else {
+        console.error('Error fetching alerts:', data.message);
+    }
+}
+
+
+
+// Apelează funcția periodic pentru actualizarea alertelor
+fetchUnreadAlertsCount();
+setInterval(fetchUnreadAlertsCount, 15000);
+function redirectToAlertsPage() {
+    window.location.href = '/monitor/alerts/';
+}
 </script>
 
 <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>

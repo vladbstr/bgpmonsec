@@ -245,7 +245,7 @@ def get_router_info(router_id, ip, username, password, cursor,conn):
     
         #append results to table [hostname,uptime,version,serial,ios,model]
         device=[ip, hostname[0],uptime,version[0],ios[0], serial[0],model[0], memory]
-        print(device)
+        
         
 
         cursor.execute('INSERT INTO bgpmonsec_project.router_details (router_id, version, memory, "IP", hostname, uptime, ios, serial, model) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s);',(router_id,device[3],device[7],ip,device[1],device[2],device[4],device[5],device[6],))
@@ -296,24 +296,31 @@ import paramiko
 
 def check_rpki_status(ip, username, password):
     """
-    Verifică dacă RPKI este configurat pe un router.
+    Verifică configurația și conexiunea RPKI pe un router.
     """
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(ip, username=username, password=password)
 
-        # Executăm comanda pentru a verifica configurația BGP
-        stdin, stdout, stderr = ssh.exec_command("show run | section bgp")
+        # Execută comanda pentru verificarea configurației RPKI
+        stdin, stdout, stderr = ssh.exec_command("show ip bgp rpki server")
         output = stdout.read().decode().strip()
         ssh.close()
-
-        # Verificăm dacă RPKI este configurat
-        if "bgp rpki server tcp" in output:
-            return "configured"
+        if "Line has invalid autocommand" in output:
+            # Cazul 4: Routerul nu suportă RPKI
+            return "Not Supported", "No Connection"
+        elif not output:
+            # Cazul 2: Nu există configurare RPKI
+            return "Not Configured", "No Connection"
+        elif "Connection state is ESTAB" in output:
+            # Cazul 1: Configurat și conectat
+            return "Configured", "Connected"
+        elif "No active TCP connection" in output:
+            # Cazul 3: Configurat, dar fără conexiune
+            return "Configured", "Disconnected"
         else:
-            return "not_configured"
+            # Orice alt caz necunoscut
+            return "unknown", "unknown"
     except Exception as e:
-        return "error"
-
-
+        return "error", str(e)

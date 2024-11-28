@@ -27,6 +27,12 @@ urlpatterns = [
     path('rpki-data/', views.fetch_rpki_data, name='fetch_rpki_data'),
     path('configure_rpki/', views.configure_rpki, name='configure_rpki'),
     path('check_rpki/', views.check_rpki, name='check_rpki'),
+    path('configure_rpki/', views.configure_rpki, name='configure_rpki'),
+    path('get_router_asn/', views.get_router_asn, name='get_router_asn'),
+    path('get_unread_alerts_count/', views.get_unread_alerts_count, name='get_unread_alerts_count'),
+    path('get_alerts/', views.get_alerts, name='get_alerts'),
+    path('mark_alerts_as_read/', views.mark_alerts_as_read, name='mark_alerts_as_read'),
+    path('alerts/', views.alerts_page, name='alerts_page'),
    
 
     

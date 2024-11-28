@@ -91,7 +91,7 @@
                         <label for="description">Description:</label>
                         <input type="text" class="form-control" id="description" name="description" required>
                     </div>
-                    <button type="button" class="btn btn-success" onclick="submitForm()">Trimite</button>
+                    <button type="button" class="btn btn-success" onclick="submitForm2()">Trimite</button>
                 </form>
             </div>
 
@@ -262,6 +262,32 @@
     function submitForm() {
         var formData = {
             ip: $('#ip').val(),
+            description: $('#description').val()
+        };
+
+        // Trimite datele către server folosind fetch
+        fetch('/monitor/salveaza-datele/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('SUCCESS SENDING DATA TO SERVER', data);
+            check_response(data.status,"sarpillii")
+        })
+        .catch(error => {
+            console.error('Error during request', error);
+        });
+    }
+
+    function submitForm2() {
+        var formData = {
+            ip: $('#ip').val(),
+            username: $('#username').val(),
+            password: $('#password').val(),
             description: $('#description').val()
         };
 

@@ -1,0 +1,68 @@
+<div class="container mt-5">
+    <h2>Alerts</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Router ID</th>
+                <th>Alert Type</th>
+                <th>Alert Name</th>
+                <th>Description</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody id="alertsTable">
+            <tr>
+                <td colspan="5" class="text-center">Loading alerts...</td>
+            </tr>
+        </tbody>
+    </table>
+    <button class="btn btn-primary" onclick="markAlertsAsRead()">Mark all as read</button>
+</div>
+
+<script>
+    async function fetchAlerts() {
+        const response = await fetch('/monitor/get_alerts/');
+        const data = await response.json();
+
+        const alertsTable = document.getElementById('alertsTable');
+        alertsTable.innerHTML = ""; // Curăță tabelul
+
+        if (data.status === 'success') {
+            const alerts = data.alerts;
+
+            if (alerts.length === 0) {
+                alertsTable.innerHTML = `<tr><td colspan="5" class="text-center">No alerts found</td></tr>`;
+            } else {
+                alerts.forEach(alert => {
+                    const row = alertsTable.insertRow();
+                    row.insertCell(0).innerText = alert.router_id;
+                    row.insertCell(1).innerText = alert.alert_type;
+                    row.insertCell(2).innerText = alert.alert_name;
+                    row.insertCell(3).innerText = alert.description;
+                    row.insertCell(4).innerText = alert.timestamp;
+                });
+            }
+        } else {
+            console.error('Error fetching alerts:', data.message);
+        }
+    }
+
+    async function markAlertsAsRead() {
+        const response = await fetch('/monitor/mark_alerts_as_read/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('Alerts marked as read');
+            fetchUnreadAlertsCount(); // Actualizează triunghiul
+            fetchAlerts(); // Reîncarcă tabelul
+        } else {
+            console.error('Error marking alerts as read:', data.message);
+        }
+    }
+
+    // Încarcă alertele la deschiderea paginii
+    fetchAlerts();
+</script>

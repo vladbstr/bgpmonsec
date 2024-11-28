@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from pythonping import ping
+from .connections import check_rpki_status
 
 DSN = 'dbname=bgpmonsec user=bgpmonsec_user password=admin host=127.0.0.1 port=5432'
 
@@ -179,10 +180,54 @@ async def process_router(router):
     await update_router_status(ip_router, status)
 
 
+async def update_rpki_status():
+    routers = await fetch_all_router_details()
+    if not routers:
+        return
+
+    conn = psycopg2.connect(DSN)
+    cursor = conn.cursor()
+
+    for router in routers:
+        router_id = router['router_id']
+        ip_address = router['IP']
+        username = router['username']
+        password = router['password']
+
+        config_status, connection_status = check_rpki_status(ip_address, username, password)
+
+        cursor.execute('''
+            INSERT INTO bgpmonsec_project.rpki_router_connection_config (router_id, config_status, rpki_server_connection_from_router)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (router_id)
+            DO UPDATE SET config_status = EXCLUDED.config_status, rpki_server_connection_from_router = EXCLUDED.rpki_server_connection_from_router
+        ''', (router_id, config_status, connection_status))
+        #Dacă statusul este "disconnected", creează o alertă
+        if connection_status == 'Disconnected':
+            cursor.execute('''
+                INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed)
+                VALUES (%s, %s, %s, %s, NOW(), %s)
+            ''', (
+                router_id,
+                'RPKI Connection',
+                'RPKI Server Disconnected',
+                f'The RPKI server connection for router {router_id} is lost.',
+                'false'
+        ))
+    
+
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
 
 async def periodic_task(interval, coro):
     while True:
         await coro()
+        await asyncio.sleep(interval)
+        await update_rpki_status()
         await asyncio.sleep(interval)
 
 

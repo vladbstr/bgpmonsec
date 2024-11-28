@@ -19,7 +19,7 @@ from .bgp_stats import get_bgp_peers_count, get_total_prefixes_count_latest, fet
 import requests
 from django.shortcuts import render
 import paramiko
-import logging
+import logging,time
 
 @csrf_exempt
 def delete_router(request):
@@ -140,9 +140,58 @@ def salveaza_datele(request):
 def monitor(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
+@csrf_exempt
 def configure_rpki(request):
     if request.method == 'GET':
         return render(request, 'monitor/configure_rpki.html', {'titlu': 'RPKI CHECK'})
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            router_id = data.get('router_id')
+            ip_address = data.get('ip_address')
+            asn = data.get('asn')
+
+            if not router_id or not ip_address or not asn:
+                return JsonResponse({'status': 'error', 'message': 'Missing router_id, ip_address, or ASN'})
+
+            conn = database_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT username, password FROM public."ROUTERS_INPUT" WHERE router_id = %s', (router_id,))
+            router = cursor.fetchone()
+
+            if not router:
+                return JsonResponse({'status': 'error', 'message': 'Router not found'})
+
+            username, password = router
+
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip_address, username=username, password=password)
+
+            # Debug command
+
+            # Use invoke_shell for interactive commands
+            shell = ssh.invoke_shell()
+            shell.send("conf t\n")
+            shell.send(f"router bgp {asn}\n")
+            shell.send("bgp rpki server tcp 192.168.62.129 port 3323 refresh 300\n")
+            shell.send("end\n")
+            shell.send("wr\n")
+            time.sleep(2)
+            output = shell.recv(9999).decode("ascii")
+            print(f"Shell output:\n{output}")
+            ssh.close()
+
+            # Check if configuration was successful
+            if "bgp rpki server" in output:
+                return JsonResponse({'status': 'success', 'message': 'RPKI configured successfully'})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Failed to configure RPKI. Check router logs.'})
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
 
 def monitorizare_retea(request):
@@ -164,6 +213,9 @@ def router_details(request,router_id):
 
 def rpki_servers_stats(request):
     return render(request, 'monitor/rpki-servers.html', {'titlu': 'RPKI SERVER STATUS'})
+
+def alerts_page(request):
+    return render(request, 'monitor/alerts.html', {'titlu': 'ALERTS'})
 
 @require_GET
 def get_bgp_stats(request):
@@ -232,15 +284,12 @@ from .connections import test_ssh_connection, check_rpki_status, database_connec
 @csrf_exempt
 def check_rpki(request):
     """
-    Endpoint pentru verificarea RPKI pe un router.
-    Primește router_id, verifică statusul RPKI și returnează JSON cu rezultatul.
+    Endpoint pentru verificarea RPKI și actualizarea bazei de date.
     """
     if request.method == 'POST':
-        #logger.info("check_rpki called")
         try:
-            # Decodificăm corpul cererii
             data = json.loads(request.body)
-            router_id = data.get('router_id')  # Preluăm ID-ul routerului
+            router_id = data.get('router_id')
 
             if not router_id:
                 return JsonResponse({'status': 'error', 'message': 'Missing router_id'})
@@ -251,31 +300,143 @@ def check_rpki(request):
 
             cursor.execute('SELECT "IP", username, password FROM public."ROUTERS_INPUT" WHERE router_id = %s', (router_id,))
             router = cursor.fetchone()
-            cursor.close()
-            conn.close()
 
             if not router:
                 return JsonResponse({'status': 'error', 'message': 'Router not found'})
 
-            # Extragem informațiile despre router
             ip_address, username, password = router
 
-            # Verificăm conexiunea SSH
-            ssh_status = test_ssh_connection(ip_address, username, password)
-            if ssh_status != 200:
-                return JsonResponse({'status': 'error', 'message': 'SSH connection failed'})
+            # Verificăm configurația și conexiunea RPKI
+            config_status, connection_status = check_rpki_status(ip_address, username, password)
 
-            # Verificăm dacă RPKI este configurat
-            rpki_status = check_rpki_status(ip_address, username, password)
+            # Salvăm rezultatul în baza de date
+            cursor.execute('''
+                INSERT INTO bgpmonsec_project.rpki_router_connection_config (router_id, config_status, rpki_server_connection_from_router)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (router_id)
+                DO UPDATE SET config_status = EXCLUDED.config_status, rpki_server_connection_from_router = EXCLUDED.rpki_server_connection_from_router
+            ''', (router_id, config_status, connection_status))
+            conn.commit()
 
-            return JsonResponse({'status': 'success', 'rpki_status': rpki_status})
+            cursor.close()
+            conn.close()
+            return JsonResponse({'status': 'success', 'config_status': config_status, 'connection_status': connection_status})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
     
 
+@csrf_exempt
+def get_router_asn(request):
+    """
+    Endpoint pentru obținerea ASN-ului unui router.
+    """
+    if request.method == 'POST':
+        try:
+            # Extrage datele din request
+            data = json.loads(request.body)
+            router_id = data.get('router_id')
+
+            if not router_id:
+                return JsonResponse({'status': 'error', 'message': 'Missing router_id'})
+
+            # Conectează-te la baza de date pentru a obține datele routerului
+            conn = database_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT "IP", username, password FROM public."ROUTERS_INPUT" WHERE router_id = %s', (router_id,))
+            router = cursor.fetchone()
+
+            if not router:
+                return JsonResponse({'status': 'error', 'message': 'Router not found'})
+
+            ip_address, username, password = router
+
+            # Conectare SSH pentru a obține ASN-ul
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip_address, username=username, password=password)
+
+            # Comandă pentru a obține ASN-ul
+            command = "show run | include router bgp"
+            stdin, stdout, stderr = ssh.exec_command(command)
+            output = stdout.read().decode().strip()
+
+            ssh.close()
+
+            # Extrage ASN-ul din output
+            asn = None
+            for line in output.splitlines():
+                if "router bgp" in line:
+                    asn = line.split()[-1]  # Ultimul element din linie este ASN-ul
+                    break
+
+            if not asn:
+                return JsonResponse({'status': 'error', 'message': 'ASN not found'})
+
+            return JsonResponse({'status': 'success', 'asn': asn})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
 
+def get_unread_alerts_count(request):
+    """
+    Endpoint pentru obținerea numărului de alerte necitite.
+    """
+    try:
+        conn = database_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM bgpmonsec_project.alerts WHERE was_readed = %s', ('false',))
+        count = cursor.fetchone()[0]
+        conn.close()
+        return JsonResponse({'status': 'success', 'count': count})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
     
+
+def get_alerts(request):
+    """
+    Endpoint pentru obținerea tuturor alertelor.
+    """
+    try:
+        conn = database_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM bgpmonsec_project.alerts ORDER BY "timestamp" DESC')
+        alerts = cursor.fetchall()
+
+        alert_list = [
+            {
+                'router_id': row[1],
+                'alert_type': row[2],
+                'alert_name': row[3],
+                'description': row[4],
+                'timestamp': row[5],
+                'was_readed': row[6]
+            }
+            for row in alerts
+        ]
+        conn.close()
+        return JsonResponse({'status': 'success', 'alerts': alert_list})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@csrf_exempt
+def mark_alerts_as_read(request):
+    """
+    Endpoint pentru a marca alertele ca citite.
+    """
+    if request.method == 'POST':
+        try:
+            conn = database_connection()
+            cursor = conn.cursor()
+            cursor.execute('UPDATE bgpmonsec_project.alerts SET was_readed = %s WHERE was_readed = %s', ('true', 'false'))
+            conn.commit()
+            conn.close()
+            return JsonResponse({'status': 'success', 'message': 'Alerts marked as read'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
     
