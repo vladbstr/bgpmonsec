@@ -5,7 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from pythonping import ping
-from .connections import check_rpki_status
+from .connections import check_rpki_status, write_alert
 
 DSN = 'dbname=bgpmonsec user=bgpmonsec_user password=admin host=127.0.0.1 port=5432'
 
@@ -148,10 +148,21 @@ def _update_router_status(ip_router, status):
     # Fetch current downtime value
     cursor.execute('SELECT downtime FROM public."ROUTERS_INPUT" WHERE "IP" = %s', (ip_router,))
     current_downtime = cursor.fetchone()[0]
-
-    # Determine new status and downtime values
+    
     new_status = 'active' if status == 200 else 'inactive'
+    
     new_downtime = current_downtime if new_status == 'inactive' and current_downtime else datetime.now() if new_status == 'inactive' else None
+    if  new_status == 'inactive':
+        cursor.execute('SELECT router_id FROM public."ROUTERS_INPUT" WHERE "IP" = %s', (ip_router,))
+        router_id = cursor.fetchone()[0]
+
+        write_alert(
+            router_id=router_id,
+            alert_type="Router Connection",
+            alert_name="Router Down",
+            description=f"The router {router_id} with IP {ip_router} is now down.",
+            timestamp=datetime.now()
+        )
 
     # Update the router status and downtime
     cursor.execute('UPDATE public."ROUTERS_INPUT" SET r_state = %s, downtime = %s WHERE "IP" = %s', (new_status, new_downtime, ip_router))

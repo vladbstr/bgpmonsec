@@ -292,6 +292,38 @@ def fetch_router_status_and_time(router_id):
     return status, time_info
 
 
+def write_alert(router_id, alert_type, alert_name, description, timestamp=None):
+    """
+    Scrie o alertă în baza de date.
+    
+    :param router_id: ID-ul routerului
+    :param alert_type: Tipul alertei (ex: 'RPKI Connection')
+    :param alert_name: Numele alertei (ex: 'Disconnected from RPKI Server')
+    :param description: Descrierea alertei
+    :param timestamp: Timpul generării alertei (implicit: timestamp-ul curent)
+    """
+    if timestamp is None:
+        timestamp = datetime.now()  # Dacă nu se specifică, folosește timestamp-ul curent
+
+    # Detalii conexiune la baza de date
+    conn = database_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Query pentru inserarea alertei
+        cursor.execute('''
+            INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        ''', (router_id, alert_type, alert_name, description, timestamp, 'false'))
+
+        conn.commit()
+        print(f"Alert written successfully for router {router_id}.")
+    except Exception as e:
+        print(f"Error writing alert: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
 import paramiko
 
 def check_rpki_status(ip, username, password):

@@ -94,7 +94,6 @@ def fetch_bgp_summary(router_id):
     lines = output.splitlines()
     parsing_bgp = False
     # Find the start of the neighbor table
-    #print(lines)
     for line in lines:
         if 'Network' in line:
             parsing_bgp = True
@@ -102,7 +101,6 @@ def fetch_bgp_summary(router_id):
         
 
         if parsing_bgp:
-            #print(line)
             parts = line.split()
 
             if parts[0].startswith('N*') or parts[0].startswith('I*') or parts[0].startswith('V*'):
@@ -115,42 +113,45 @@ def fetch_bgp_summary(router_id):
                 locpref = 0
                 weight = str(parts[4])
                 path = str(" ".join(parts[5:]))
+                cursor.execute(
+                        'INSERT INTO bgpmonsec_project.sh_bgp_ip (router_id, network_with_mask, network, mask, next_hop, metric, locpref, weight, "path", "timestamp", rpki_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);',
+                        (router_id, network_with_mask, str(network),mask,next_hop,metric,locpref,weight,path,sst_timestamp, rpki_flag)
+                    )
 
 
             elif parts[0].startswith('i*>') and re.search(r'\d', parts[0]):
                     
                     network_with_mask = str(parts[0].lstrip('N*>'))
-                    #print(network_with_mask)
                     network = network_with_mask.split('/')[0]
-                    #print(network_with_mask)
-                    #print('hoooooooooooo')
                     mask=network_with_mask.split('/')[1]
                     next_hop = str(parts[1])
                     metric = str(parts[2])
                     locpref = str(parts[3])
                     weight = str(parts[4])
                     path = str(" ".join(parts[6:]))
+                    cursor.execute(
+                        'INSERT INTO bgpmonsec_project.sh_bgp_ip (router_id, network_with_mask, network, mask, next_hop, metric, locpref, weight, "path", "timestamp") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);',
+                        (router_id, network_with_mask, str(network),mask,next_hop,metric,locpref,weight,path,sst_timestamp)
+                    )
 
             else:
+
                 path="1"
-                #print(parts)
                 network_with_mask = str(parts[1])
                 network = network_with_mask.split('/')[0]
-                print(network_with_mask)
-                #print('daaaa')
                 mask=network_with_mask.split('/')[1]
                 next_hop = str(parts[2])
                 metric = str(parts[3])
-                locpref = str(parts[4])
-                weight = str(parts[5])
-                path = str(" ".join(parts[6:]))
+                weight = str(parts[4])
+                path = str(" ".join(parts[5:]))
                 #path="1"
+                cursor.execute(
+                        'INSERT INTO bgpmonsec_project.sh_bgp_ip (router_id, network_with_mask, network, mask, next_hop, metric, weight, "path", "timestamp") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);',
+                        (router_id, network_with_mask, str(network),mask,next_hop,metric,weight,path,sst_timestamp)
+                    )
         
 
-            cursor.execute(
-                        'INSERT INTO bgpmonsec_project.sh_bgp_ip (router_id, network_with_mask, network, mask, next_hop, metric, locpref, weight, "path", "timestamp", rpki_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);',
-                        (router_id, network_with_mask, str(network),mask,next_hop,metric,locpref,weight,path,sst_timestamp, rpki_flag)
-                    )
+            
     conn.commit()
     cursor.close()
     
@@ -171,33 +172,33 @@ def get_unique_prefixes(request):
     cursor = conn.cursor()
 
     query = """
-    WITH latest_summary AS (
-        SELECT 
-            router_id, 
-            MAX("timestamp") AS latest_timestamp
-        FROM 
-            bgpmonsec_project.sh_bgp_ip
-        GROUP BY 
-            router_id
-    ),
-    filtered_bgp AS (
-        SELECT DISTINCT ON (sb.network_with_mask)
-            sb.network_with_mask,
-            sb.path
-        FROM 
-            bgpmonsec_project.sh_bgp_ip sb
-        JOIN 
-            latest_summary ls ON sb.router_id = ls.router_id AND sb."timestamp" = ls.latest_timestamp
-        ORDER BY 
-            sb.network_with_mask, sb."timestamp" DESC
-    )
+    WITH latest_timestamp AS (
     SELECT 
-        network_with_mask,
+        router_id, 
+        MAX("timestamp") AS latest_time
+    FROM 
+        bgpmonsec_project.sh_bgp_ip
+    GROUP BY 
+        router_id
+),
+unique_prefixes_and_asn AS (
+    SELECT DISTINCT
+        sb.network_with_mask,
         (regexp_matches(sb.path, '(\\d+)\\si$', 'g'))[1] AS as_number
     FROM 
-        filtered_bgp sb
-    ORDER BY 
-        network_with_mask;
+        bgpmonsec_project.sh_bgp_ip sb
+    JOIN 
+        latest_timestamp lt 
+    ON 
+        sb.router_id = lt.router_id AND sb."timestamp" = lt.latest_time
+)
+SELECT 
+    network_with_mask, 
+    as_number
+FROM 
+    unique_prefixes_and_asn
+ORDER BY 
+    network_with_mask, as_number;
     """
 
     cursor.execute(query)
@@ -213,7 +214,6 @@ def get_unique_prefixes(request):
         })
 
     cursor.close()
-
     return JsonResponse({"prefixes": prefixes})
 
 

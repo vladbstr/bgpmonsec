@@ -1,8 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPKI Check</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+</head>
+
+<header>
+    <a>Alerts</a>
+</header>
+
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <a href="/monitor/monitor" class="navbar-brand">
+        <img src="{% static 'logo.png' %}" alt="Logo" style="height: 50px;">
+    </a>
+
+    <ul class="col-xs-4 navbar-nav mx-auto">
+        <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+        <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+        <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
+        <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
+    </ul>
+    
+    <button id="alertButton" class="btn btn-warning" onclick="redirectToAlertsPage()" style="position: relative; background-color: transparent; border: none;">
+        <div id="alertTriangle" style="width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 25px solid grey; position: relative;"></div>
+        <span id="alertCount" style="position: absolute; top: -5px; right: -10px; background-color: red; color: white; font-size: 12px; border-radius: 50%; padding: 2px 5px; display: none;"></span>
+    </button>
+    <a>"   "</a>
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <img src="{% static 'default.png' %}" alt="User Icon" style="width: 20px; height: 20px;">
+        </button>
+        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+            <a class="dropdown-item" href="/changepass">Change Password</a>
+            <a class="dropdown-item" href="/handlelogout">Log Out</a>
+        </div>
+    </div>
+</nav>
 <div class="container mt-5">
     <h2>Alerts</h2>
     <table class="table table-striped">
         <thead>
+            <th>
+                <input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)">
+            </th>
             <tr>
+                <th></th>
                 <th>Router ID</th>
                 <th>Alert Type</th>
                 <th>Alert Name</th>
@@ -12,57 +61,127 @@
         </thead>
         <tbody id="alertsTable">
             <tr>
-                <td colspan="5" class="text-center">Loading alerts...</td>
+                <td colspan="6" class="text-center">Loading alerts...</td>
             </tr>
         </tbody>
     </table>
-    <button class="btn btn-primary" onclick="markAlertsAsRead()">Mark all as read</button>
+    <button class="btn btn-primary" onclick="markSelectedAlertsAsRead()">Mark as Read</button>
 </div>
 
 <script>
+
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp);
+    const options = { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+    };
+    return date.toLocaleString('en-US', options);
+}
     async function fetchAlerts() {
-        const response = await fetch('/monitor/get_alerts/');
+    const response = await fetch('/monitor/get_alerts/');
+    const data = await response.json();
+
+    const alertsTable = document.getElementById('alertsTable');
+    alertsTable.innerHTML = ""; // Curăță tabelul
+
+    if (data.status === 'success') {
+        const alerts = data.alerts;
+
+        if (alerts.length === 0) {
+            alertsTable.innerHTML = `<tr><td colspan="6" class="text-center">No alerts found</td></tr>`;
+        } else {
+            alerts.forEach(alert => {
+                const row = alertsTable.insertRow();
+                row.style.backgroundColor = alert.was_readed === 'false' ? 'red' : 'white';
+                row.style.color = alert.was_readed === 'false' ? 'white' : 'black';
+
+                // Checkbox pentru selectare
+                const checkboxCell = row.insertCell(0);
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = alert.ID; // ID-ul alertei
+                checkboxCell.appendChild(checkbox);
+
+                // Detalii alertă
+                row.insertCell(1).innerText = alert.router_id;
+                row.insertCell(2).innerText = alert.alert_type;
+                row.insertCell(3).innerText = alert.alert_name;
+                row.insertCell(4).innerText = alert.description;
+                row.insertCell(5).innerText = formatTimestamp(alert.timestamp); // Folosește funcția de formatare
+            });
+        }
+    } else {
+        console.error('Error fetching alerts:', data.message);
+    }
+}
+
+    async function markSelectedAlertsAsRead() {
+        const checkboxes = document.querySelectorAll('#alertsTable input[type="checkbox"]:checked');
+        const alertIds = Array.from(checkboxes).map(checkbox => checkbox.value);
+
+        if (alertIds.length === 0) {
+            alert('Please select at least one alert.');
+            return;
+        }
+
+        const response = await fetch('/monitor/mark_alerts_as_read/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alert_ids: alertIds })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('Selected alerts marked as read');
+            fetchAlerts(); // Reîncarcă tabelul
+        } else {
+            console.error('Error marking alerts as read:', data.message);
+        }
+        fetchUnreadAlertsCount();
+    }
+
+    // Încarcă alertele la deschiderea paginii
+    fetchAlerts();
+
+    async function fetchUnreadAlertsCount() {
+        const response = await fetch('/monitor/get_unread_alerts_count/');
         const data = await response.json();
 
-        const alertsTable = document.getElementById('alertsTable');
-        alertsTable.innerHTML = ""; // Curăță tabelul
-
         if (data.status === 'success') {
-            const alerts = data.alerts;
+            const count = data.count;
+            const alertTriangle = document.getElementById('alertTriangle');
+            const alertCount = document.getElementById('alertCount');
 
-            if (alerts.length === 0) {
-                alertsTable.innerHTML = `<tr><td colspan="5" class="text-center">No alerts found</td></tr>`;
+            if (count > 0) {
+                alertTriangle.style.borderBottomColor = 'red';
+                alertCount.style.display = 'inline';
+                alertCount.innerText = count;
             } else {
-                alerts.forEach(alert => {
-                    const row = alertsTable.insertRow();
-                    row.insertCell(0).innerText = alert.router_id;
-                    row.insertCell(1).innerText = alert.alert_type;
-                    row.insertCell(2).innerText = alert.alert_name;
-                    row.insertCell(3).innerText = alert.description;
-                    row.insertCell(4).innerText = alert.timestamp;
-                });
+                alertTriangle.style.borderBottomColor = 'grey';
+                alertCount.style.display = 'none';
             }
         } else {
             console.error('Error fetching alerts:', data.message);
         }
     }
 
-    async function markAlertsAsRead() {
-        const response = await fetch('/monitor/mark_alerts_as_read/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+    // Apelează funcția periodic pentru actualizarea alertelor
+    fetchUnreadAlertsCount();
+    setInterval(fetchUnreadAlertsCount, 15000);
 
-        const data = await response.json();
-        if (data.status === 'success') {
-            alert('Alerts marked as read');
-            fetchUnreadAlertsCount(); // Actualizează triunghiul
-            fetchAlerts(); // Reîncarcă tabelul
-        } else {
-            console.error('Error marking alerts as read:', data.message);
-        }
+    function redirectToAlertsPage() {
+        window.location.href = '/monitor/alerts/';
     }
 
-    // Încarcă alertele la deschiderea paginii
-    fetchAlerts();
+    function toggleAllCheckboxes(source) {
+    const checkboxes = document.querySelectorAll('#alertsTable input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = source.checked;
+    });
+}
 </script>
