@@ -1,0 +1,237 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGP Monitor</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
+        <a class="navbar-brand" href="/monitor/monitor">
+            <img src="{% static 'logo.png' %}" alt="Logo" style="height: 50px;">
+        </a>
+        <ul class="navbar-nav mx-auto">
+            <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+            <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+            <li class="nav-item active"><a href="#" class="nav-link">BGP Monitor</a></li>
+        </ul>
+    </nav>
+
+    <div class="container mt-5">
+        <h2>BGP Route Monitoring</h2>
+        <!-- Table -->
+        <table class="table table-striped" id="bgpMonitorTable">
+            <thead>
+                <tr>
+                    <th>Prefix</th>
+                    <th>Next-hop</th>
+                    <th>ASN Path</th>
+                    <th>RPKI Status</th>
+                    <th>Timestamp</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="6" class="text-center">Loading routes...</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Chart -->
+        <h3>RPKI Status Trends</h3>
+        
+        <canvas id="rpkiTrendsChart" width="400" height="200"></canvas>
+        <div class="d-flex align-items-center mb-3">
+            <div class="container mt-3">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="start_time">Start Time:</label>
+                        <input type="datetime-local" id="start_time" name="start_time" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end_time">End Time:</label>
+                        <input type="datetime-local" id="end_time" name="end_time" class="form-control">
+                    </div>
+                    <!-- Setare Perioadă Eșantionare -->
+                        <div class="col-md-4">
+                            <label for="sampling_period">Sampling Period (minutes):</label>
+                            <select id="sampling_period" class="form-control">
+                                <option value="5">5 Minutes</option>
+                                <option value="10">10 Minutes</option>
+                                <option value="15">15 Minutes</option>
+                                <option value="30">30 Minutes</option>
+                                <option value="60">1 Hour</option>
+                            </select>
+                        </div>
+                        <br>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" id="updateChartButton" onclick="updateChartWithSettings()">Update Chart</button>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        let rpkiChart; // Referință la grafic
+        let rpkiChartInstance = null;
+    
+        async function fetchRoutes() {
+            const response = await fetch('/monitor/get_routes/');
+            const data = await response.json();
+    
+            const tableBody = document.getElementById('bgpMonitorTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = ""; // Curăță rândurile existente
+    
+            if (data.status === 'success') {
+                data.routes.forEach(route => {
+                    const row = tableBody.insertRow();
+    
+                    // Adaugă detalii despre rută
+                    row.insertCell(0).innerText = route.prefix;
+                    row.insertCell(1).innerText = route.next_hop;
+                    row.insertCell(2).innerText = route.asn_path;
+                    row.insertCell(3).innerText = route.rpki_status;
+                    row.insertCell(4).innerText = new Date(route.timestamp).toLocaleString();
+                    
+                    // Evidențiază rândul în funcție de status
+                    const statusCell = row.insertCell(5);
+                    if (route.status === 'ok') {
+                        statusCell.innerHTML = `<span class="text-success">OK</span>`;
+                        row.classList.add('table-success');
+                    } else if (route.status === 'suspect') {
+                        statusCell.innerHTML = `<span class="text-warning">Suspect</span>`;
+                        row.classList.add('table-warning');
+                    } else {
+                        statusCell.innerHTML = `<span class="text-danger">Hijacked</span>`;
+                        row.classList.add('table-danger');
+                    }
+                });
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center">Error loading routes</td></tr>`;
+            }
+        }
+    
+        
+
+async function fetchRPKITrends(interval = 24) {
+    const response = await fetch(`/monitor/get_rpki_trends/?interval=${interval}`);
+    const data = await response.json();
+
+    console.log('RPKI Trends Data:', data); // Diagnosticare
+    if (data.status === 'success' && data.timestamps.length > 0) {
+        renderRPKIChart(data);
+    } else {
+        console.warn('No data to render for RPKI trends.');
+    }
+}
+
+async function fetchRPKITrendsWithSettings(startTime, endTime, samplingPeriod) {
+        const params = new URLSearchParams({
+            start_time: startTime,
+            end_time: endTime,
+            sampling_period: samplingPeriod
+        });
+
+        const response = await fetch(`/monitor/get_rpki_trends/?${params.toString()}`);
+        const data = await response.json();
+
+        console.log('RPKI Trends Data:', data); // Diagnosticare
+        if (data.status === 'success' && data.timestamps.length > 0) {
+            renderRPKIChart(data);
+        } else {
+            console.warn('No data to render for RPKI trends.');
+        }
+    }
+
+
+    function renderRPKIChart(data) {
+        const ctx = document.getElementById('rpkiTrendsChart').getContext('2d');
+
+        if (rpkiChart) {
+            rpkiChart.destroy();
+        }
+
+        rpkiChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.timestamps,
+                datasets: [
+                    {
+                        label: 'Invalid',
+                        data: data.invalid_counts,
+                        borderColor: 'red',
+                        fill: false
+                    },
+                    {
+                        label: 'Valid',
+                        data: data.valid_counts,
+                        borderColor: 'green',
+                        fill: false
+                    },
+                    {
+                        label: 'Not Found',
+                        data: data.not_found_counts,
+                        borderColor: 'gray',
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Timp'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Număr rute'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function updateChartWithSettings() {
+        const startTime = document.getElementById('start_time').value;
+        const endTime = document.getElementById('end_time').value;
+        const samplingPeriod = document.getElementById('sampling_period').value;
+
+        if (!startTime || !endTime) {
+            alert("Please select both start and end times.");
+            return;
+        }
+
+        fetchRPKITrendsWithSettings(startTime, endTime, samplingPeriod);
+    }
+
+
+
+        // Fetch inițial
+        fetchRoutes();
+        fetchRPKITrends();
+    
+        // Actualizări periodice
+        setInterval(fetchRoutes, 15000);
+        setInterval(fetchRPKITrends, 15000);
+    </script>
+    
+
+</body>
+
+</html>

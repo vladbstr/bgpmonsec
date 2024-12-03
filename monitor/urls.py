@@ -2,6 +2,7 @@
 from django.urls import path
 from .views import monitorizare_retea
 from monitor import views
+from monitor import bgp_monitor
 from pathlib import Path
 from .bgp_stats import get_unique_prefixes
 from .cpu_memory import get_router_stats
@@ -33,6 +34,9 @@ urlpatterns = [
     path('get_alerts/', views.get_alerts, name='get_alerts'),
     path('mark_alerts_as_read/', views.mark_alerts_as_read, name='mark_alerts_as_read'),
     path('alerts/', views.alerts_page, name='alerts_page'),
+    path('get_routes/', bgp_monitor.get_routes, name='get_routes'),
+    path('get_rpki_trends/', bgp_monitor.get_rpki_trends, name='get_rpki_trends'),
+    path('bgp-monitor/', views.bgp_monitor_page, name='bgp_monitor_page'),
    
 
     

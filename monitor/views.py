@@ -217,6 +217,9 @@ def rpki_servers_stats(request):
 def alerts_page(request):
     return render(request, 'monitor/alerts.html', {'titlu': 'ALERTS'})
 
+def bgp_monitor_page(request):
+    return render(request, 'monitor/bgp_monitor.html')  
+
 @require_GET
 def get_bgp_stats(request):
     fetch_bgp_summary_all_routers()
