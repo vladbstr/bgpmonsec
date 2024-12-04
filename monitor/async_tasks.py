@@ -192,6 +192,7 @@ async def process_router(router):
 
 
 async def update_rpki_status():
+    
     routers = await fetch_all_router_details()
     if not routers:
         return
