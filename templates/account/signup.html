@@ -1,55 +1,57 @@
-{% extends 'base.html' %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
 
-{% block css %}
-.form-class {
-display: grid;
-grid-template-columns: 1fr 1fr;
-}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGPMonSec - Sign Up</title>
+    <link rel="stylesheet" href="{% static 'style_login.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
 
-{% endblock %}
-
-{% block title %}Sign up{% endblock title%}
-
-{% block content %}
-<div class="container my-4 bg pb-5">
-    <div class="row justify-content-center ">
-        <div class="col-6">
-            <div class="card">
-                <div class="card-body">
-                    <h1 class="display-6">Sign up!</h1>
-                    <div class="form-class">
-                        <form class="lead mx-2" method="post" action="{% url 'signupuser' %}">
-                            {% csrf_token %}
-                            <div class="form-group mt-2 mb-2">
-                                First name: {{form.first_name}}
-                            </div>
-                            <div class="form-group mt-2 mb-2">
-                                Last name: {{form.last_name}}
-                            </div>
-                            <div class="form-group mt-2 mb-2">
-                                Username: {{ form.username }}
-                            </div>
-                            <div class="form-group mt-2 mb-2">
-                                Email: {{ form.email }}
-                            </div>
-                            <div class="form-group mt-2 mb-2">
-                                Password: Enter your own or <a role="button" class="btn btn-outline-danger mb-2"
-                                                               href="{% url 'passwordGenerator:passhome' %}" target="_blank">Generate
-                                a secure passsword</a>{{ form.password1 }}
-                            </div>
-                            <div class="form-group mt-2 mb-2">
-                                (Confirm): {{ form.password2 }}
-                            </div>
-                            <button type="submit" class="btn btn-success">Sign up!</button>
-                        </form>
-                    </div>
-                    <hr>
-                    <p class="lead">Already have an account? <a href="{% url 'loginuser' %}"
-                                                                class="text-decoration-none">Login</a></p>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1 class="app-title">BGPMonSec</h1>
+            <h2 class="login-title">Create an Account</h2>
+            <p class="login-subtitle">Join us and start monitoring your BGP data</p>
+            <form action="{% url 'signupuser' %}" method="post" class="login-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    {{ form.first_name }}
                 </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    {{ form.last_name }}
+                </div>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    {{ form.username }}
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    {{ form.email }}
+                </div>
+                <div class="form-group">
+                    <label for="password1">Password</label>
+                    {{ form.password1 }}
+                </div>
+                <div class="form-group">
+                    <label for="password2">Confirm Password</label>
+                    {{ form.password2 }}
+                </div>
+                <button type="submit" class="btn-login">Sign Up</button>
+            </form>
+            <div class="login-footer">
+                <p>Already have an account? <a href="{% url 'loginuser' %}">Log in</a></p>
+            </div>
+            <div class="footer">
+                <p>&copy; 2024 BGPMonSec. All Rights Reserved.</p>
             </div>
         </div>
     </div>
-</div>
+</body>
 
-{% endblock %}
+</html>

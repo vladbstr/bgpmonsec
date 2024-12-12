@@ -136,7 +136,8 @@ def salveaza_datele(request):
             return JsonResponse({'status': 'error', 'message': f'Eroare la decodificarea JSON: {str(e)}'})
     else:
         return JsonResponse({'status': 'error', 'message': 'Metoda de cerere nu este POST'})
-    
+
+@login_required
 def monitor(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
@@ -193,10 +194,11 @@ def configure_rpki(request):
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
-
+@login_required
 def monitorizare_retea(request):
     return render(request, 'monitor/monitor.html', {'titlu': 'MONITORIZARE RETEA'})
 
+@login_required
 def bgp_stats(request):
     return render(request, 'monitor/bgp-stats.html')
     
@@ -204,6 +206,7 @@ def router_uptime(request, router_id):
     status, time_info = fetch_router_status_and_time(router_id)
     return JsonResponse({'status': status, 'time_info': time_info})
 
+@login_required
 def router_statistics(request, router_id):
     return render(request, 'monitor/router_statistics.html', {'router_id': router_id})
 
@@ -211,12 +214,15 @@ def router_details(request,router_id):
     r_details=process_router_details(router_id)
     return JsonResponse(r_details)
 
+@login_required
 def rpki_servers_stats(request):
     return render(request, 'monitor/rpki-servers.html', {'titlu': 'RPKI SERVER STATUS'})
 
+@login_required
 def alerts_page(request):
     return render(request, 'monitor/alerts.html', {'titlu': 'ALERTS'})
 
+@login_required
 def bgp_monitor_page(request):
     return render(request, 'monitor/bgp_monitor.html')  
 

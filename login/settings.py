@@ -92,6 +92,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.62.129:8323",
 ]
 
+LOGIN_URL = '/login/'
+
 WSGI_APPLICATION = 'login.wsgi.application'
 
 # Database

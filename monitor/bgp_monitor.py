@@ -6,7 +6,7 @@ from .connections import database_connection
 from datetime import datetime, timedelta
 from urllib.parse import unquote
 from .bgp_stats import fetch_bgp_summary_all_routers
-
+from django.contrib.auth.decorators import login_required
 
 def get_routes(request):
     try:

@@ -1,48 +1,176 @@
 <!-- templates/account/home.html -->
 {% extends 'base.html' %}
-{% block css %}
-.btn-signup {
-color: hsl(0, 0%, 44%);
-background-color: #fff;
-border-color: hsl(51, 100%, 40%);
-}
-.btn-signup:hover, .btn-primary:focus, .btn-primary:active, .btn-primary.active, .open>.dropdown-toggle.btn-primary {
-color: hsl(0, 0%, 16%);
-background-color: hsl(51, 100%, 47%);
-border-color: hsl(51, 100%, 40%);
-}
 
-{% endblock %}
+{% block css %}
+{% load static %}
+<style>
+    .home-header {
+        background: linear-gradient(45deg, #0052D4, #4364F7, #6FB1FC);
+        color: #fff;
+        padding: 40px 20px;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .home-header h1 {
+        font-size: 3rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+
+    .home-header p {
+        font-size: 1.2rem;
+        margin-bottom: 20px;
+    }
+
+    .btn-home {
+        padding: 10px 20px;
+        font-size: 1.1rem;
+        border-radius: 5px;
+    }
+
+    .features-section, .advantages-section, .testimonials-section {
+        margin-top: 40px;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .features-section h2, .advantages-section h2, .testimonials-section h2 {
+        margin-bottom: 30px;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    .features-card, .advantages-card, .testimonial-card {
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin: 20px;
+    }
+
+    .features-card img, .advantages-card img, .testimonial-card img {
+        max-width: 100%;
+        border-radius: 10px;
+        margin-bottom: 15px;
+    }
+
+    .features-card h4, .advantages-card h4, .testimonial-card h4 {
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+    }
+
+    .features-card p, .advantages-card p, .testimonial-card p {
+        font-size: 1rem;
+        color: #555;
+    }
+
+    .call-to-action {
+        background: linear-gradient(45deg, #6FB1FC, #0052D4);
+        color: #fff;
+        text-align: center;
+        padding: 40px 20px;
+        border-radius: 10px;
+        margin-top: 40px;
+    }
+
+    .call-to-action h3 {
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .call-to-action .btn {
+        font-size: 1.2rem;
+        padding: 10px 20px;
+
+    }
+
+    .footer {
+        
+        color: #030202;
+        text-align: center;
+        padding: 10px 0;
+        position: relative;
+        bottom: 0;
+        width: 100%;
+    }
+
+    .footer p {
+        margin: 0;
+        font-size: 0.9rem;}
+</style>
+{% endblock css %}
+
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<div class="container text-center m-5">
-    <h1 class="display-4">Home</h1>
-    {% if user.is_authenticated %}
-    Hi {{ request.user }}!
-    <div class="mt-3">
-        <a role="button" class="btn btn-outline-secondary" href="{% url 'userprofile:userprofile' request.user %}">View My
-            Profile</a><br>
-
-        <a role="button" class="mt-2 btn btn-outline-danger" href="/handlelogout">Log Out</a><br>
-        <a role="button" class="mt-2 btn btn-outline-info" href="/changepass">Change Password</a>
-        <a role="button" class="mt-2 btn btn-outline-info" href="/monitor/monitor">Monitorizare</a>
-        
-    </div>
-    {% else %}
-    <div class="row justify-content-center mt-2">
-        <div class="col-md-4">
-            <p class="lead">You are not logged in</p>
-            <a role="button" class="btn btn-outline-success" href="/login">Log In</a>
-        </div>
-        <div class="row justify-content-center mt-2">
-            <div class="col-md-4">
-                <p class="lead">Don't have an account? Sign up!</p>
-                <a role="button" class="btn btn-signup" href="/signup">Sign Up</a>
-            </div>
+<div class="container">
+    <br><br><br>
+    <div class="home-header">
+        <h1>Welcome to BGPMonSec</h1>
+        <p>Monitor your BGP routes with advanced tools and visualizations.</p>
+        {% if user.is_authenticated %}
+        <p class="lead">Hello, {{ request.user }}! Ready to explore your dashboard?</p>
+        <a class="btn btn-home btn-primary" href="/monitor/monitor">Go to Monitor</a>
+        {% else %}
+        <div class="auth-buttons">
+            <a class="btn btn-home btn-success" href="/login">Log In</a>
+            <a class="btn btn-home btn-info" href="/signup">Sign Up</a>
         </div>
         {% endif %}
     </div>
-    {% endblock %}
 
-    
+    <!-- Features Section -->
+    <div class="features-section">
+        <h2>Features of BGPMonSec</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="features-card">
+                    <img src="{% static 'real-time-remote-monitoring-.jpg' %}" alt="Real Time Monitoring" style="height: 100px;">
+                    <h4>Real-time Monitoring</h4>
+                    <p>Stay updated with live route updates and alerts for potential hijacks.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="features-card">
+                    <img src="{% static 'RPKI-key.jpg' %}" alt="RPKI Validation" style="height: 100px;">
+                    <h4>RPKI Validation</h4>
+                    <p>Ensure the integrity of your routes with built-in RPKI validation.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="features-card">
+                    <img src="{% static 'secure_app.jpg' %}" alt="Secure Platform" style="height: 100px;">
+                    <h4>Secure Platform</h4>
+                    <p>Enjoy a secure and reliable monitoring experience designed for professionals.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advantages Section -->
+    <div class="advantages-section">
+        <h2>Why Choose BGPMonSec?</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="advantages-card">
+                    <img src="{% static 'bgp_logo.png' %}" alt="Advantage 1" style="height: 100px;">
+                    <h4>Comprehensive BGP Insights</h4>
+                    <p>Get detailed insights into your network's routing tables and performance metrics.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="advantages-card">
+                    <img src="{% static 'troubleshooting.png' %}" alt="Advantage 2" style="height: 100px;">
+                    <h4>Streamlined Troubleshooting</h4>
+                    <p>Quickly identify and address anomalies in your network routing with our intuitive tools.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 BGPMonSec. All Rights Reserved.</p>
+    </div>
+</div>
+{% endblock %}
