@@ -24,10 +24,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-&d-@-24l@_*vgxgkc4b$qa+eie#vq+r_%z1c*lasc%47r633=b'
 
+
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'bgpmonsec']
 
 # Application definition
 
@@ -43,6 +52,7 @@ INSTALLED_APPS = [
     'userprofile',
     'monitor',
     'corsheaders',
+    'sslserver',
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,2 @@
+
+python manage.py runsslserver --certificate certs/bgpmonsec.crt --key certs/bgpmonsec.key 443

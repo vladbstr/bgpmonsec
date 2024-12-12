@@ -12,6 +12,9 @@
 </head>
 
 <body>
+    <header>
+        <a>BGP Monitor</a>
+    </header>
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-md navbar-dark bg-dark">
         <a class="navbar-brand" href="/monitor/monitor">
@@ -20,8 +23,13 @@
         <ul class="navbar-nav mx-auto">
             <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
             <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
-            <li class="nav-item active"><a href="#" class="nav-link">BGP Monitor</a></li>
+            <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
+            <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
         </ul>
+        <button id="alertButton" class="btn btn-warning" onclick="redirectToAlertsPage()" style="position: relative; background-color: transparent; border: none;">
+            <div id="alertTriangle" style="width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 25px solid grey; position: relative;"></div>
+            <span id="alertCount" style="position: absolute; top: -5px; right: -10px; background-color: red; color: white; font-size: 12px; border-radius: 50%; padding: 2px 5px; display: none;"></span>
+        </button>
     </nav>
 
     <div class="container mt-5">
@@ -70,7 +78,33 @@
     </div>
 
     <script>
-        let rpkiChart; // Referință la grafic
+        let rpkiChart = null; // Referință globală pentru grafic
+    
+        document.addEventListener("DOMContentLoaded", function () {
+            // Obține ora curentă
+            const now = new Date();
+    
+            // Calculează ora de start (12 ore în urmă)
+            const startTime = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+    
+            // Formatează datele pentru câmpurile `datetime-local`
+            const formatDateTime = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            };
+    
+            // Setează valorile implicite pentru `start_time` și `end_time`
+            document.getElementById("start_time").value = formatDateTime(startTime);
+            document.getElementById("end_time").value = formatDateTime(now);
+    
+            // Grafic inițial
+            updateChartWithSettings();
+        });
+    
         async function fetchRoutes() {
             const response = await fetch('/monitor/get_routes/');
             const data = await response.json();
@@ -88,7 +122,7 @@
                     row.insertCell(2).innerText = route.asn_path;
                     row.insertCell(3).innerText = route.rpki_status;
                     row.insertCell(4).innerText = new Date(route.timestamp).toLocaleString();
-                    
+    
                     // Evidențiază rândul în funcție de status
                     const statusCell = row.insertCell(5);
                     if (route.status === 'ok') {
@@ -106,37 +140,11 @@
                 tableBody.innerHTML = `<tr><td colspan="6" class="text-center">Error loading routes</td></tr>`;
             }
         }
-
-
-        document.addEventListener("DOMContentLoaded", function () {
-            // Obține ora curentă
-            const now = new Date();
-
-            // Calculează ora de start (12 ore în urmă)
-            const startTime = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-
-            // Formatează datele pentru câmpurile `datetime-local`
-            const formatDateTime = (date) => {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day}T${hours}:${minutes}`;
-            };
-
-            // Setează valorile implicite pentru `start_time` și `end_time`
-            document.getElementById("start_time").value = formatDateTime(startTime);
-            document.getElementById("end_time").value = formatDateTime(now);
-
-            // Grafic inițial
-            updateChartWithSettings();
-        });
-
+    
         function renderRPKIChartECharts(data) {
             const chartDom = document.getElementById('rpkiTrendsChart');
             const myChart = echarts.init(chartDom);
-
+    
             const option = {
                 title: {
                     text: 'RPKI Status Trends',
@@ -190,48 +198,76 @@
                     }
                 ]
             };
-
+    
             myChart.setOption(option);
-
+    
             // Buton pentru resetare zoom
-            document.getElementById('resetZoomButton').addEventListener('click', () => {
-                myChart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
-            });
-
+            const resetZoomButton = document.getElementById('resetZoomButton');
+            if (resetZoomButton) {
+                resetZoomButton.addEventListener('click', () => {
+                    myChart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+                });
+            }
+    
             window.addEventListener('resize', myChart.resize);
         }
-
+    
         async function fetchRPKITrendsWithSettings(startTime, endTime) {
             const params = new URLSearchParams({ start_time: startTime, end_time: endTime });
             const response = await fetch(`/monitor/get_rpki_trends/?${params.toString()}`);
             const data = await response.json();
-
+    
             if (data.status === 'success' && data.timestamps.length > 0) {
                 renderRPKIChartECharts(data);
             } else {
                 console.warn('No data to render for RPKI trends.');
             }
         }
-
+    
         function updateChartWithSettings() {
             const startTime = document.getElementById('start_time').value;
             const endTime = document.getElementById('end_time').value;
-
-            if (!startTime || !endTime) {
-                alert("Please select both start and end times.");
-                return;
-            }
-
+    
+            
+    
             fetchRPKITrendsWithSettings(startTime, endTime);
         }
 
+        function redirectToAlertsPage() {
+    window.location.href = '/monitor/alerts/';
+    }
+    async function fetchUnreadAlertsCount() {
+    const response = await fetch('/monitor/get_unread_alerts_count/');
+    const data = await response.json();
+
+    if (data.status === 'success') {
+        const count = data.count;
+        const alertTriangle = document.getElementById('alertTriangle');
+        const alertCount = document.getElementById('alertCount');
+
+        if (count > 0) {
+            alertTriangle.style.borderBottomColor = 'red';
+            alertCount.style.display = 'inline';
+            alertCount.innerText = count;
+        } else {
+            alertTriangle.style.borderBottomColor = 'grey';
+            alertCount.style.display = 'none';
+        }
+    } else {
+        console.error('Error fetching alerts:', data.message);
+    }}
+
+    
+    
+        // Fetch inițial
         fetchRoutes();
-        
+        fetchUnreadAlertsCount();
+        updateChartWithSettings();
     
         // Actualizări periodice
         setInterval(fetchRoutes, 15000);
         setInterval(updateChartWithSettings, 15000);
-
+        setInterval(fetchUnreadAlertsCount, 5000);
     </script>
 </body>
 </html>

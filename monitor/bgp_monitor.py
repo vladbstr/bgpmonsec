@@ -50,7 +50,39 @@ def get_routes(request):
         """
         cursor.execute(query)
         routes = cursor.fetchall()
-        print(routes)
+        
+         # Procesăm alertele
+        for route in routes:
+            if route['status'] in ['hijacked', 'suspect']:  # Verificăm doar pentru rute invalide sau suspecte
+                # Verificăm dacă alerta există deja necitită
+                check_alert_query = """
+                SELECT * 
+                FROM bgpmonsec_project.alerts 
+                WHERE router_id = %s AND alert_name = %s AND was_readed = 'false';
+                """
+                cursor.execute(check_alert_query, (route['router_id'], route['prefix']))
+                existing_alert = cursor.fetchone()
+                
+
+                if existing_alert:
+                    # Actualizăm timestamp-ul alertei existente
+                    update_alert_query = """
+                    UPDATE bgpmonsec_project.alerts
+                    SET "timestamp" = NOW()
+                    WHERE "ID" = %s;
+                    """
+                    cursor.execute(update_alert_query, (existing_alert['ID'],))
+                else:
+                    # Inserăm o nouă alertă
+                    insert_alert_query = """
+                    INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed)
+                    VALUES (%s, %s, %s, %s, NOW(), 'false');
+                    """
+                    alert_type = 'Invalid Route' if route['status'] == 'hijacked' else 'Unknown Route'
+                    alert_description = f"Route {route['prefix']} is {route['status']}."
+                    cursor.execute(insert_alert_query, (route['router_id'], alert_type, route['prefix'], alert_description))
+
+        conn.commit()
         return JsonResponse({'status': 'success', 'routes': routes})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
@@ -149,7 +181,7 @@ ORDER BY "timestamp";
             'valid_counts': valid_counts,
             'not_found_counts': not_found_counts
         })
-        print(a)
+        
         return a
 
     except Exception as e:
