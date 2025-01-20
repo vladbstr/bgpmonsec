@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from urllib.parse import unquote
 from .bgp_stats import fetch_bgp_summary_all_routers
 from django.contrib.auth.decorators import login_required
+from netmiko import ConnectHandler
 
 def get_routes(request):
     try:
@@ -15,43 +16,57 @@ def get_routes(request):
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         query = """
-       WITH latest_configured_routes AS (
-    SELECT DISTINCT ON (sb.network_with_mask, sb.router_id)
-        sb.router_id,
-        sb.network_with_mask AS prefix,
-        sb.next_hop,
-        sb.path AS asn_path,
-        sb.rpki_status,
-        sb."timestamp",
-        CASE 
-            WHEN sb.rpki_status = 'I' THEN 'hijacked'
-            WHEN sb.rpki_status = 'N' THEN 'suspect'
-            ELSE 'ok'
-        END AS status
+        WITH latest_configured_routes AS (
+            SELECT DISTINCT ON (sb.network_with_mask, sb.router_id)
+                sb.router_id,
+                sb.network_with_mask AS prefix,
+                sb.next_hop,
+                sb.path AS asn_path,
+                sb.rpki_status,
+                sb."timestamp",
+                CASE 
+                    WHEN sb.rpki_status = 'I' THEN 'hijacked'
+                    WHEN sb.rpki_status = 'N' THEN 'suspect'
+                    ELSE 'ok'
+                END AS status
+            FROM 
+                bgpmonsec_project.sh_bgp_ip sb
+            JOIN 
+                bgpmonsec_project.rpki_router_connection_config rc
+            ON 
+                sb.router_id = rc.router_id
+            WHERE 
+                rc.config_status = 'Configured'
+            ORDER BY sb.network_with_mask, sb.router_id, sb."timestamp" DESC
+        ),
+        latest_timestamp AS (
+            SELECT MAX("timestamp") AS latest_timestamp
+            FROM latest_configured_routes
+        )
+        SELECT 
+            lcr.*, 
+            COALESCE(brm.status_actions, 
+                CASE 
+                    WHEN lcr.rpki_status = 'V' THEN 'installed'
+                    WHEN lcr.rpki_status = 'N' THEN 'no action'
+                    ELSE 'no action'
+                END
+            ) AS status_actions
         FROM 
-            bgpmonsec_project.sh_bgp_ip sb
-        JOIN 
-            bgpmonsec_project.rpki_router_connection_config rc
+            latest_configured_routes lcr
+        LEFT JOIN 
+            bgpmonsec_project.bgp_route_monitor brm
         ON 
-            sb.router_id = rc.router_id
+            lcr.prefix = brm.prefix
         WHERE 
-            rc.config_status = 'Configured'
-        ORDER BY sb.network_with_mask, sb.router_id, sb."timestamp" DESC
-    ),
-    latest_timestamp AS (
-        SELECT MAX("timestamp") AS latest_timestamp
-        FROM latest_configured_routes
-    )
-    SELECT *
-    FROM latest_configured_routes
-    WHERE "timestamp" = (SELECT latest_timestamp FROM latest_timestamp)
-    ORDER BY "timestamp" DESC;
+            lcr."timestamp" = (SELECT latest_timestamp FROM latest_timestamp)
+        ORDER BY lcr."timestamp" DESC;
 
         """
         cursor.execute(query)
         routes = cursor.fetchall()
-        
-         # Procesăm alertele
+
+        # Procesăm alertele
         for route in routes:
             if route['status'] in ['hijacked', 'suspect']:  # Verificăm doar pentru rute invalide sau suspecte
                 # Verificăm dacă alerta există deja necitită
@@ -62,7 +77,6 @@ def get_routes(request):
                 """
                 cursor.execute(check_alert_query, (route['router_id'], route['prefix']))
                 existing_alert = cursor.fetchone()
-                
 
                 if existing_alert:
                     # Actualizăm timestamp-ul alertei existente
@@ -86,6 +100,7 @@ def get_routes(request):
         return JsonResponse({'status': 'success', 'routes': routes})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
+
     
 def get_rpki_trends(request):
     try:
@@ -186,3 +201,123 @@ ORDER BY "timestamp";
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
+    
+
+
+
+
+def save_bgp_route(prefix, next_hop, asn_path, rpki_status, status_actions, router_id):
+    """
+    Salvează sau actualizează o rută în tabela bgp_route_monitor.
+    """
+    conn = database_connection()
+    cursor = conn.cursor()
+    try:
+        # Verifică dacă ruta există
+        cursor.execute('''
+            SELECT "ID" FROM bgpmonsec_project.bgp_route_monitor
+            WHERE prefix = %s AND asn_path = %s
+        ''', (prefix, asn_path))
+        existing_route = cursor.fetchone()
+
+        if existing_route:
+            # Actualizăm statusul rutei existente
+            cursor.execute('''
+                UPDATE bgpmonsec_project.bgp_route_monitor
+                SET status_actions = %s, rpki_status = %s, "next-hop" = %s, router_id = %s
+                WHERE "ID" = %s
+            ''', (status_actions, rpki_status, next_hop, router_id, existing_route[0]))
+        else:
+            # Inserăm ruta nouă
+            cursor.execute('''
+                INSERT INTO bgpmonsec_project.bgp_route_monitor 
+                (prefix, "next-hop", asn_path, rpki_status, status_actions, router_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (prefix, next_hop, asn_path, rpki_status, status_actions, router_id))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving BGP route: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+def update_bgp_route_status(route_id, status_actions):
+    """
+    Actualizează statusul unei rute în tabela bgp_route_monitor.
+    """
+    conn = database_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            UPDATE bgpmonsec_project.bgp_route_monitor
+            SET status_actions = %s
+            WHERE "router_id" = %s
+        ''', (status_actions, route_id))
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating BGP route status: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+def configure_router(prefix, router_ip, username, password, action):
+    """
+    Configurare prefix pe router: permite sau blochează un prefix.
+    """
+    cisco_device = {
+        'device_type': 'cisco_ios',
+        'host': router_ip,
+        'username': username,
+        'password': password,
+        'secret': password
+    }
+
+    try:
+        net_connect = ConnectHandler(**cisco_device)
+        net_connect.enable()
+
+        # Verificăm dacă prefixul există deja în route-map
+        output = net_connect.send_command("show route-map RPKI_POLICY")
+        prefix_rule = f"permit {prefix}" if action == "install" else f"deny {prefix}"
+
+        if prefix_rule in output:
+            print(f"Prefix {prefix} already configured with action {action} on router {router_ip}.")
+            return "already_configured"
+
+        # Dacă acțiunea este deny, ștergem regula permit existentă
+        if action == "deny":
+            # Ștergem regula permit dacă există
+            delete_commands = [
+                f"no ip prefix-list ALLOW_UNKNOWN permit {prefix}"
+            ]
+            net_connect.send_config_set(delete_commands)
+            print(f"Prefix {prefix} removed from permit list on router {router_ip}.")
+
+        # Adăugăm regula corespunzătoare (permit sau deny)
+        commands = []
+        if action == "install":
+            commands = [
+                f"ip prefix-list ALLOW_UNKNOWN seq 5 permit {prefix}",
+                "route-map RPKI_POLICY permit 5",
+                " match ip address prefix-list ALLOW_UNKNOWN",
+                " set local-preference 150"
+            ]
+        elif action == "deny":
+            commands = [
+                f"ip prefix-list ALLOW_UNKNOWN seq 10 deny {prefix}"
+            ]
+
+        net_connect.send_config_set(commands)
+        net_connect.save_config()
+
+        print(f"Prefix {prefix} successfully configured with action {action} on router {router_ip}.")
+        return "configured"
+
+    except Exception as e:
+        print(f"Error configuring router {router_ip}: {e}")
+        return "error"
+
+    finally:
+        net_connect.disconnect()

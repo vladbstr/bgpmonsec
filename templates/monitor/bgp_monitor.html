@@ -44,6 +44,8 @@
                     <th>RPKI Status</th>
                     <th>Timestamp</th>
                     <th>Status</th>
+                    <th>Status Actions</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -106,40 +108,118 @@
         });
     
         async function fetchRoutes() {
-            const response = await fetch('/monitor/get_routes/');
-            const data = await response.json();
-    
-            const tableBody = document.getElementById('bgpMonitorTable').getElementsByTagName('tbody')[0];
-            tableBody.innerHTML = ""; // Curăță rândurile existente
-    
-            if (data.status === 'success') {
-                data.routes.forEach(route => {
-                    const row = tableBody.insertRow();
-    
-                    // Adaugă detalii despre rută
-                    row.insertCell(0).innerText = route.prefix;
-                    row.insertCell(1).innerText = route.next_hop;
-                    row.insertCell(2).innerText = route.asn_path;
-                    row.insertCell(3).innerText = route.rpki_status;
-                    row.insertCell(4).innerText = new Date(route.timestamp).toLocaleString();
-    
-                    // Evidențiază rândul în funcție de status
-                    const statusCell = row.insertCell(5);
-                    if (route.status === 'ok') {
-                        statusCell.innerHTML = `<span class="text-success">OK</span>`;
-                        row.classList.add('table-success');
-                    } else if (route.status === 'suspect') {
-                        statusCell.innerHTML = `<span class="text-warning">Suspect</span>`;
-                        row.classList.add('table-warning');
-                    } else {
-                        statusCell.innerHTML = `<span class="text-danger">Hijacked</span>`;
-                        row.classList.add('table-danger');
-                    }
-                });
-            } else {
-                tableBody.innerHTML = `<tr><td colspan="6" class="text-center">Error loading routes</td></tr>`;
+    const response = await fetch('/monitor/get_routes/');
+    const data = await response.json();
+
+    const tableBody = document.getElementById('bgpMonitorTable').getElementsByTagName('tbody')[0];
+    tableBody.innerHTML = ""; // Curăță rândurile existente
+
+    if (data.status === 'success') {
+        data.routes.forEach(route => {
+            const row = tableBody.insertRow();
+
+            // Adaugă detalii despre rută
+            row.insertCell(0).innerText = route.prefix;
+            row.insertCell(1).innerText = route.next_hop;
+            row.insertCell(2).innerText = route.asn_path;
+            row.insertCell(3).innerText = route.rpki_status;
+            row.insertCell(4).innerText = new Date(route.timestamp).toLocaleString();
+            row.insertCell(5).innerText = route.status || 'Pending';
+            row.insertCell(6).innerText = route.status_actions || 'no action';
+
+            // Stilizează rândul în funcție de rpki_status
+            if (route.rpki_status === 'V') {
+                row.classList.add('table-success'); // Verde pentru V
+            } else if (route.rpki_status === 'N') {
+                row.style.backgroundColor = '#FFD700'; // Galben închis pentru N
             }
+
+            // Butoane de acțiune
+            const actionsCell = row.insertCell(7);
+            
+            actionsCell.innerHTML = `
+                <button class="btn btn-success btn-sm" onclick="updateRoute('${route.prefix}', '${route.next_hop}', '${route.asn_path}', '${route.rpki_status}', '${route.router_id}', 'install')">Instalează</button>
+                <button class="btn btn-danger btn-sm" onclick="updateRoute('${route.prefix}', '${route.next_hop}', '${route.asn_path}', '${route.rpki_status}', '${route.router_id}', 'deny')">Deny</button>
+            `;
+            
+        });
+    } else {
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center">Error loading routes</td></tr>`;
+    }
+}
+
+
+
+
+
+
+
+function getCSRFToken() {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        if (cookie.trim().startsWith('csrftoken=')) {
+            return cookie.trim().substring('csrftoken='.length);
         }
+    }
+    return null;
+}
+
+function updateRoute(prefix, nextHop, asnPath, rpkiStatus, routerId, action) {
+    fetch('/monitor/manage_bgp_route/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            prefix: prefix,
+            next_hop: nextHop,
+            asn_path: asnPath,
+            rpki_status: rpkiStatus,
+            router_id: routerId,  // Trimite router_id
+            action: action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            fetchRoutes(); // Reîncarcă tabelul pentru a reflecta statusul actualizat
+        } else {
+            alert('Eroare: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
         function renderRPKIChartECharts(data) {
             const chartDom = document.getElementById('rpkiTrendsChart');

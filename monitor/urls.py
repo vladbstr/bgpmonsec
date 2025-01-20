@@ -37,7 +37,7 @@ urlpatterns = [
     path('get_routes/', bgp_monitor.get_routes, name='get_routes'),
     path('get_rpki_trends/', bgp_monitor.get_rpki_trends, name='get_rpki_trends'),
     path('bgp-monitor/', views.bgp_monitor_page, name='bgp_monitor_page'),
-   
+    path('manage_bgp_route/', views.manage_bgp_route, name='manage_bgp_route'),
 
     
    # /monitor/api/get-bgp-stats/
