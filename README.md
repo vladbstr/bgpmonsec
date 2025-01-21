@@ -18,7 +18,7 @@
 
 ## Technologies Used
 
-- **Backend:** Python (Flask) for application logic.
+- **Backend:** Python (Django) for application logic.
 - **Frontend:** HTML, CSS, Bootstrap for user interface.
 - **Database:** PostgreSQL for secure data storage.
 - **Others:** Asyncio for asynchronous tasks like monitoring and notifications.
@@ -43,7 +43,8 @@
    ./env/Script/activate
    pip install -r requirements.txt
 3. Run the plicaattion:
-
+   Add a DNS resolution for name domain. I used bgpmonsec - 127.0.0.1 (or locaal IP). 
+   Generate a certificte from an authority. I used a self-signed certificate with openssl.
    
    ```bash
    py manage.py runsslserver 0.0.0.0:443 --certificate certs/bgpmonsec.crt --key certs/bgpmonsec.key
