@@ -2,6 +2,10 @@
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-12%2B-brightgreen)
+![HTML](https://img.shields.io/badge/HTML-5-orange)
+![CSS](https://img.shields.io/badge/CSS-3-blue)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6-yellow)
+![Bootstrap](https://img.shields.io/badge/Bootstrap-5-purple)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
 ## Description
