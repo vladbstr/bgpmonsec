@@ -36,3 +36,14 @@
    ```bash
    git clone https://github.com/vladbstr/bgpmonsec.git
    cd bgpmonsec
+2. Create a virtual environment for storing libraries:
+
+    ```bash
+   py -m venv env
+   ./env/Script/activate
+   pip install -r requirements.txt
+3. Run the plicaattion:
+
+   
+   ```bash
+   py manage.py runsslserver 0.0.0.0:443 --certificate certs/bgpmonsec.crt --key certs/bgpmonsec.key
