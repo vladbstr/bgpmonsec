@@ -1,4 +1,3 @@
-
 .custom-navbar {
     background-color: #222831;
     color: #f1f1f1;
@@ -127,123 +126,7 @@
 
 /* -----------------Stil notificări */
 
-header {
-    margin-top: -10%;
-    text-align: center;
-    font-size: 5em;
-    }
-
-body {
-    font-family: 'Arial', sans-serif;
-    background-color: #ffffff;
-    padding: 200px;
-    margin: 0;
-}
-.body_router_details{
-    font-family: 'Arial', sans-serif;
-    background-color: #58926b;
-    padding: 100px;
-    margin: 0;
-}
-.blue-background {
-    background-color: #00f; /* Sau oricare alt cod de culoare albastră dorit */
-    text-align: center;
-    font-size: 36px;
-    color: #fff; /* Culoarea textului pentru a contrasta cu fundalul */
-    padding: 10px; /* Adăugați spațiu în jurul textului pentru a îmbunătăți aspectul */
-}
-
-h1 {
-    text-align: center;
-    font-size: 32px;
-    color: #000000;
-}
-
-.btn-primary {
-    background-color: #007bff;
-    border-color: #007bff;
-}
-
-.btn-primary:hover {
-    background-color: #0056b3;
-    border-color: #0056b3;
-}
-
-.modal {
-    display: none;
-}
-
-.modal-content {
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 5px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-}
-
-.close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 30px;
-    color: #000;
-    cursor: pointer;
-}
-
-.modal-body{
-    background-color: rgb(48, 72, 151);
-}
-
-.modal-header{
-    background-color: white;
-}
-
-
-
-#routerDetailsTable {
-    margin: auto;
-    width: 80%; /* Ajustează lățimea tabelului după preferințele tale */
-    border-collapse: collapse;
-    color: rgb(0, 0, 0);
-}
-
-#routerDetailsTable th, #routerDetailsTable td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: center;
-    background-color: #f2f2f2;
-}
-
-#routerDetailsTable th {
-    background-color: #f2f2f2;
-}
-
-
-.stat-card {
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    padding: 20px;
-    margin: 10px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-.stat-card h3 {
-    font-size: 24px;
-    margin-bottom: 10px;
-}
-.stat-card .value {
-    font-size: 32px;
-    font-weight: bold;
-}
-.stat-card .description {
-    font-size: 14px;
-    color: #666;
-}
-.stat-card .icon {
-    font-size: 40px;
-    margin-bottom: 10px;
-    color: green;
-}
-
+/* CERCUL DE LA ROUTER STATISTICS*/
 
 .status-circle {
     width: 200px;
@@ -277,3 +160,58 @@ h1 {
     font-size: 16px;
     color: white;
 }
+
+
+
+/* CERCUL DE LA ROUTER STATISTICS*/
+
+/* TABELUL CU DAATE DE LA ROUTER STATISTICS*/
+#routerDetailsTable {
+    margin: auto;
+    width: 80%; /* Ajustează lățimea tabelului după preferințele tale */
+    border-collapse: collapse;
+    color: rgb(0, 0, 0);
+}
+
+#routerDetailsTable th, #routerDetailsTable td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    background-color: #f2f2f2;
+}
+
+#routerDetailsTable th {
+    background-color: #f2f2f2;
+}
+/* TABELUL CU DAATE DE LA ROUTER STATISTICS*/
+
+
+
+/* CaRDs de la bgp statistics */
+.stat-card {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 10px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.stat-card h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+.stat-card .value {
+    font-size: 32px;
+    font-weight: bold;
+}
+.stat-card .description {
+    font-size: 14px;
+    color: #666;
+}
+.stat-card .icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+    color: green;
+}
+
+/* CaRDs de la bgp statistics */
