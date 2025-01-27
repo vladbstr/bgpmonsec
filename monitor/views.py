@@ -10,13 +10,15 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from psycopg2.extras import RealDictCursor
 from django.db import IntegrityError
 from django import forms
 import psycopg2
+import ipaddress
 import json
 from .connections import test_ssh_connection, generate_router_id, extract_routers_details, process_router_details, fetch_router_status_and_time
 from .bgp_stats import get_bgp_peers_count, get_total_prefixes_count_latest, fetch_bgp_summary_all_routers
-from .bgp_monitor import save_bgp_route, update_bgp_route_status, configure_router
+
 import requests
 from django.shortcuts import render
 import paramiko
@@ -450,53 +452,148 @@ def mark_alerts_as_read(request):
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
     
+
+def cidr_to_wildcard(prefix):
+    """
+    Transforma un prefix CIDR (ex. 1.30.153.0/24) în format wildcard mask (ex. 1.30.153.0 0.0.0.255).
+    """
+    network = ipaddress.IPv4Network(prefix, strict=False)
+    ip = str(network.network_address)
+    netmask = str(network.netmask)
+
+    # Transformăm netmask-ul în wildcard mask
+    wildcard = '.'.join(str(255 - int(octet)) for octet in netmask.split('.'))
+    return f"{ip} {wildcard}"
+
 @csrf_exempt
 def manage_bgp_route(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            action = data.get('action')  # poate fi install sau deny
             prefix = data.get('prefix')
-            next_hop = data.get('next_hop')
-            asn_path = data.get('asn_path')
-            rpki_status = data.get('rpki_status')
             router_id = data.get('router_id')
+            action = data.get('action')
+            rpki_status = data.get('rpki_status')
 
-            # Obține detalii router din tabela ROUTERS_INPUT
+            # Conectare la baza de date
             conn = database_connection()
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            # Obține detalii despre router
             cursor.execute('''
                 SELECT "IP", username, password
                 FROM public."ROUTERS_INPUT"
                 WHERE router_id = %s
             ''', (router_id,))
             router_details = cursor.fetchone()
+
             if not router_details:
                 return JsonResponse({'status': 'error', 'message': f'Router {router_id} not found'}, status=404)
-            
-            router_ip, username, password = router_details
+
+            router_ip = router_details["IP"]
+            username = router_details["username"]
+            password = router_details["password"]
+
+            # Verificăm dacă ruta există deja în baza de date
+            cursor.execute('''
+                SELECT * FROM bgpmonsec_project.bgp_route_monitor
+                WHERE prefix = %s AND router_id = %s
+            ''', (prefix, router_id))
+            route = cursor.fetchone()
 
             # Configurare pe router
-            result = configure_router(prefix, router_ip, username, password, action)
+            cisco_device = {
+                'device_type': 'cisco_ios',
+                'host': router_ip,
+                'username': username,
+                'password': password,
+                'secret': password
+            }
 
-            # Actualizare baza de date
-            configured_status = (result == "configured")
-            save_bgp_route(prefix, next_hop, asn_path, rpki_status, action, router_id)
-            cursor.execute('''
-                UPDATE bgpmonsec_project.bgp_route_monitor
-                SET configured_in_router = %s
-                WHERE prefix = %s
-            ''', (configured_status, prefix))
-            conn.commit()
-            cursor.close()
-            conn.close()
+            if action == 'install':
+                if route and route['status_actions'] == 'installed':
+                    return JsonResponse({'status': 'success', 'message': f'Route {prefix} is already installed.'})
 
-            return JsonResponse({'status': 'success', 'message': f'Route {prefix} configured: {result}'})
+                if route and route['status_actions'] == 'deny':
+                    # Creează conexiunea la router
+                    from netmiko import ConnectHandler
+                    net_connect = ConnectHandler(**cisco_device)
+                    print('intra')
+                    # Găsim și ștergem regula din access-list
+                    acl_name = "BLOCK_PREFIXES"
+                    acl_output = net_connect.send_command(f"show run | s ip access-list extended {acl_name}")
+                    print(acl_output)
+                    print(prefix)
+                    wildcard_prefix = cidr_to_wildcard(prefix)
+                    print(wildcard_prefix)
+
+                    print(f"ip access-list extended {acl_name}")
+                    print(f"no permit ip {prefix} any")
+                    if f"permit ip {wildcard_prefix}" in acl_output:
+                        net_connect.send_config_set([f"ip access-list extended {acl_name}", f"no permit ip {wildcard_prefix} any"])
+                        print(f"Prefix {wildcard_prefix} removed from access-list {acl_name}.")
+
+                    # Actualizăm baza de date
+                    cursor.execute('''
+                        UPDATE bgpmonsec_project.bgp_route_monitor
+                        SET status_actions = %s, configured_in_router = %s
+                        WHERE prefix = %s AND router_id = %s
+                    ''', ('installed', True, prefix, router_id))
+                    conn.commit()
+
+                    net_connect.save_config()
+                    net_connect.disconnect()
+
+                    return JsonResponse({'status': 'success', 'message': f'Route {prefix} successfully installed.'})
+
+                return JsonResponse({'status': 'error', 'message': f'Route {prefix} is not configured for deny.'})
+
+            elif action == 'deny':
+                if route and route['status_actions'] == 'deny':
+                    return JsonResponse({'status': 'success', 'message': f'Route {prefix} is already denied.'})
+
+                # Creează conexiunea la router
+                from netmiko import ConnectHandler
+                net_connect = ConnectHandler(**cisco_device)
+
+                # Adăugăm regula în access-list
+                acl_name = "BLOCK_PREFIXES"
+                acl_output = net_connect.send_command(f"show run | s ip access-list extended {acl_name}")
+
+                # Transform prefix în wildcard pentru access-list
+                import ipaddress
+                ip_network = ipaddress.IPv4Network(prefix, strict=False)
+                wildcard = str(ip_network.network_address) + " " + str(ip_network.hostmask)
+
+                if f"permit ip {wildcard} any" not in acl_output:
+                    net_connect.send_config_set([f"ip access-list extended {acl_name}", f"permit ip {wildcard} any"])
+                    print(f"Prefix {prefix} added to access-list {acl_name}.")
+
+                # Actualizăm baza de date
+                cursor.execute('''
+                    INSERT INTO bgpmonsec_project.bgp_route_monitor 
+                    (prefix, next_hop, asn_path, rpki_status, status_actions, router_id, configured_in_router, "timestamp")
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (prefix) DO UPDATE SET 
+                        status_actions = EXCLUDED.status_actions, 
+                        configured_in_router = EXCLUDED.configured_in_router
+                ''', (prefix, data.get('next_hop'), data.get('asn_path'), rpki_status, 'deny', router_id, True))
+                conn.commit()
+
+                net_connect.save_config()
+                net_connect.disconnect()
+
+                return JsonResponse({'status': 'success', 'message': f'Route {prefix} successfully denied and added to database.'})
+
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Invalid action'}, status=400)
 
         except Exception as e:
             print(f"Error: {e}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+
 
 

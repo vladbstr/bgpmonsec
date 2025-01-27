@@ -6,20 +6,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BGP Monitor</title>
-    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <link rel="stylesheet" href="{% static 'navbar.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
 </head>
 
+<div class="page-title">
+    <h1>BGP Monitor</h1>
+</div>
 <body>
-    <header>
-        <a>BGP Monitor</a>
-    </header>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark">
-        <a class="navbar-brand" href="/monitor/monitor">
-            <img src="{% static 'logo.png' %}" alt="Logo" style="height: 50px;">
+ <!-- Navigation -->
+ <nav class="navbar navbar-expand-lg custom-navbar">
+    <div class="container">
+        <a href="/monitor/monitor" class="navbar-brand">
+            <img src="{% static 'logo.png' %}" alt="Logo" class="logo">
+            
         </a>
         <ul class="navbar-nav mx-auto">
             <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
@@ -27,11 +29,24 @@
             <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
             <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
         </ul>
-        <button id="alertButton" class="btn btn-warning" onclick="redirectToAlertsPage()" style="position: relative; background-color: transparent; border: none;">
-            <div id="alertTriangle" style="width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 25px solid grey; position: relative;"></div>
-            <span id="alertCount" style="position: absolute; top: -5px; right: -10px; background-color: red; color: white; font-size: 12px; border-radius: 50%; padding: 2px 5px; display: none;"></span>
-        </button>
-    </nav>
+        <div class="navbar-notifications">
+            <button class="notification-btn" onclick="redirectToAlertsPage()">
+                <i class="fas fa-bell"></i>
+                <span class="notification-count" id="alertCount">3</span>
+            </button>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-light dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <img src="{% static 'default.png' %}" alt="User Icon" class="user-icon">
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+                <a class="dropdown-item" href="/changepass">Change Password</a>
+                <a class="dropdown-item" href="/handlelogout">Log Out</a>
+            </div>
+        </div>
+    </div>
+</nav>
 
     <div class="container mt-5">
         <h2>BGP Route Monitoring</h2>
@@ -39,13 +54,13 @@
         <table class="table table-striped" id="bgpMonitorTable">
             <thead>
                 <tr>
-                    <th>Prefix</th>
-                    <th>Next-hop</th>
-                    <th>ASN Path</th>
-                    <th>RPKI Status</th>
-                    <th>Timestamp</th>
-                    <th>Status</th>
-                    <th>Status Actions</th>
+                    <th onclick="sortTable(0)">Prefix</th>
+                    <th onclick="sortTable(1)">Next-hop</th>
+                    <th onclick="sortTable(2)">ASN Path</th>
+                    <th onclick="sortTable(3)">RPKI Status</th>
+                    <th onclick="sortTable(4)">Timestamp</th>
+                    <th onclick="sortTable(5)">Status</th>
+                    <th onclick="sortTable(6)">Status Actions</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -55,6 +70,8 @@
                 </tr>
             </tbody>
         </table>
+
+        <div id="rpkiPieChart" style="width: 100%; height: 400px; margin-top: 20px;"></div>
 
         <!-- Chart -->
         <h3>RPKI Status Trends</h3>
@@ -116,6 +133,8 @@
     tableBody.innerHTML = ""; // Curăță rândurile existente
 
     if (data.status === 'success') {
+        let installedCount = 0; // Numără rutele cu "installed"
+        let denyCount = 0;      // Numără rutele cu "deny"
         data.routes.forEach(route => {
             const row = tableBody.insertRow();
 
@@ -127,30 +146,89 @@
             row.insertCell(4).innerText = new Date(route.timestamp).toLocaleString();
             row.insertCell(5).innerText = route.status || 'Pending';
             row.insertCell(6).innerText = route.status_actions || 'no action';
+            if (route.status_actions === 'installed') {
+                installedCount++;
+            } else if (route.status_actions === 'deny') {
+                denyCount++;
+            }
 
             // Stilizează rândul în funcție de rpki_status
             if (route.rpki_status === 'V') {
                 row.classList.add('table-success'); // Verde pentru V
             } else if (route.rpki_status === 'N') {
                 row.style.backgroundColor = '#FFD700'; // Galben închis pentru N
+            } else if (route.rpki_status === 'I'){
+                row.style.backgroundColor = 'red';
             }
 
             // Butoane de acțiune
             const actionsCell = row.insertCell(7);
+            if (route.rpki_status === 'I') {
+                actionsCell.innerHTML = `<span style="color: white; font-style: bold;">Can’t perform any action</span>`;
+            } else {
+                actionsCell.innerHTML = `
+                    <button class="btn btn-success btn-sm" onclick="updateRoute('${route.prefix}', '${route.next_hop}', '${route.asn_path}', '${route.rpki_status}', '${route.router_id}', 'install')">Instalează</button>
+                    <button class="btn btn-danger btn-sm" onclick="updateRoute('${route.prefix}', '${route.next_hop}', '${route.asn_path}', '${route.rpki_status}', '${route.router_id}', 'deny')">Deny</button>
+                `;
+            };
             
-            actionsCell.innerHTML = `
-                <button class="btn btn-success btn-sm" onclick="updateRoute('${route.prefix}', '${route.next_hop}', '${route.asn_path}', '${route.rpki_status}', '${route.router_id}', 'install')">Instalează</button>
-                <button class="btn btn-danger btn-sm" onclick="updateRoute('${route.prefix}', '${route.next_hop}', '${route.asn_path}', '${route.rpki_status}', '${route.router_id}', 'deny')">Deny</button>
-            `;
+            
+           
             
         });
+        renderPieChart(installedCount, denyCount);
     } else {
         tableBody.innerHTML = `<tr><td colspan="8" class="text-center">Error loading routes</td></tr>`;
     }
 }
 
 
+function renderPieChart(installedCount, denyCount) {
+    const chartDom = document.getElementById('rpkiPieChart');
+    const myChart = echarts.init(chartDom);
 
+    const option = {
+        title: {
+            text: 'Route Actions',
+            left: 'center',
+            textStyle: {
+                fontSize: 24, // Dimensiunea textului titlului
+                fontWeight: 'bold',
+            },
+        },
+        tooltip: {
+            trigger: 'item'
+        },
+        legend: {
+            top: '10%',
+            left: 'center',
+            textStyle: {
+                fontSize: 16, // Dimensiunea textului titlului
+                fontWeight: 'normal',
+            },
+        },
+        series: [
+            {
+                name: 'Routes',
+                type: 'pie',
+                radius: '50%',
+                data: [
+                    { value: installedCount, name: 'Installed' },
+                    { value: denyCount, name: 'Deny' }
+                ],
+                emphasis: {
+                    itemStyle: {
+                        shadowBlur: 10,
+                        shadowOffsetX: 0,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
+                    }
+                }
+            }
+        ]
+    };
+
+    myChart.setOption(option);
+}
 
 
 
@@ -316,29 +394,62 @@ function updateRoute(prefix, nextHop, asnPath, rpkiStatus, routerId, action) {
 
         function redirectToAlertsPage() {
     window.location.href = '/monitor/alerts/';
-    }
-    async function fetchUnreadAlertsCount() {
+}
+
+function sortTable(columnIndex) {
+    const table = document.getElementById("bgpMonitorTable");
+    const tbody = table.querySelector("tbody");
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    // Determinăm direcția de sortare (ascendent sau descendent)
+    const isAscending = table.getAttribute(`data-sort-col-${columnIndex}`) !== "asc";
+    table.setAttribute(`data-sort-col-${columnIndex}`, isAscending ? "asc" : "desc");
+
+    // Sortăm rândurile
+    rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].innerText.trim();
+        const bText = b.cells[columnIndex].innerText.trim();
+
+        if (!isNaN(aText) && !isNaN(bText)) {
+            // Sortare numerică
+            return isAscending ? aText - bText : bText - aText;
+        }
+
+        // Sortare lexicografică
+        return isAscending
+            ? aText.localeCompare(bText)
+            : bText.localeCompare(aText);
+    });
+
+    // Reatașăm rândurile sortate
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+
+async function fetchUnreadAlertsCount() {
     const response = await fetch('/monitor/get_unread_alerts_count/');
     const data = await response.json();
 
+    const alertCount = document.getElementById('alertCount');
+    const notificationBtn = document.querySelector('.notification-btn');
+
     if (data.status === 'success') {
         const count = data.count;
-        const alertTriangle = document.getElementById('alertTriangle');
-        const alertCount = document.getElementById('alertCount');
 
         if (count > 0) {
-            alertTriangle.style.borderBottomColor = 'red';
+            alertCount.innerText = count > 99 ? '99+' : count; // Afișează "99+" dacă sunt mai multe notificări
             alertCount.style.display = 'inline';
-            alertCount.innerText = count;
+            notificationBtn.setAttribute('data-unread', 'true');
         } else {
-            alertTriangle.style.borderBottomColor = 'grey';
             alertCount.style.display = 'none';
+            notificationBtn.setAttribute('data-unread', 'false');
         }
     } else {
         console.error('Error fetching alerts:', data.message);
-    }}
+    }
+}
 
-    
+
     
         // Fetch inițial
         fetchRoutes();
@@ -346,7 +457,7 @@ function updateRoute(prefix, nextHop, asnPath, rpkiStatus, routerId, action) {
         updateChartWithSettings();
     
         // Actualizări periodice
-        setInterval(fetchRoutes, 15000);
+        //setInterval(fetchRoutes, 15000);
         setInterval(updateChartWithSettings, 15000);
         setInterval(fetchUnreadAlertsCount, 5000);
     </script>

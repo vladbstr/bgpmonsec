@@ -8,6 +8,8 @@ from urllib.parse import unquote
 from .bgp_stats import fetch_bgp_summary_all_routers
 from django.contrib.auth.decorators import login_required
 from netmiko import ConnectHandler
+from psycopg2.extras import RealDictCursor
+import ipaddress
 
 def get_routes(request):
     try:
@@ -64,10 +66,75 @@ def get_routes(request):
 
         """
         cursor.execute(query)
-        routes = cursor.fetchall()
+        db_routes = cursor.fetchall()
+     
+        # Pasul 2: Procesăm rutele cu `rpki_status = 'N'`
+        for route in db_routes:
+            if route['rpki_status'] == 'N':
+                try:
+                    
+                    try:
+                        # Verificăm dacă ruta este deja `installed` în baza de date
+                        cursor.execute("""
+                            SELECT * 
+                            FROM bgpmonsec_project.bgp_route_monitor
+                            WHERE prefix = %s AND router_id = %s
+                        """, (route['prefix'], route['router_id']))
+                        installed_route = cursor.fetchone()
+                    except Exception as e:
+                        print(f"Eroare la SELECT: {e}")
 
+                    # Dacă ruta este deja `installed`, o sărim
+                    if installed_route:
+                        print(f"Ruta {route['prefix']} este deja `installed`. Sar peste configurare.")
+                        continue
+                    # Inserăm ruta în baza de date
+                    cursor.execute("""
+                        INSERT INTO bgpmonsec_project.bgp_route_monitor 
+                        (prefix, "next_hop", asn_path, rpki_status, status_actions, configured_in_router, router_id, "timestamp")
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (prefix)
+                        DO UPDATE SET 
+                            "next_hop" = EXCLUDED."next_hop",
+                            asn_path = EXCLUDED.asn_path,
+                            rpki_status = EXCLUDED.rpki_status,
+                            status_actions = EXCLUDED.status_actions,
+                            configured_in_router = EXCLUDED.configured_in_router,
+                            "timestamp" = EXCLUDED."timestamp";
+                    """, (
+                        route['prefix'], route['next_hop'], route['asn_path'], 
+                        route['rpki_status'], 'deny', False, 
+                        route['router_id'], route['timestamp']
+                    ))
+                    
+                    conn.commit()
+                except Exception as e:
+                    print(f"Eroare la INSERT: {e}")
+                
+                configure_router(route['router_id'], route['prefix'])
+
+        
+        # Pasul 3: Adăugăm rutele din tabela bgp_route_monitor în răspuns
+        query_db_routes = """
+        SELECT * FROM bgpmonsec_project.bgp_route_monitor
+        """
+        cursor.execute(query_db_routes)
+        additional_routes = cursor.fetchall()
+
+        # Filtrăm rutele din `db_routes` care nu se regăsesc deja în `additional_routes`
+        # Creăm un set cu toate prefixurile din baza de date
+        db_prefixes = {route['prefix'] for route in additional_routes}
+
+        # Eliminăm rutele duplicat din `db_routes`
+        filtered_db_routes = [route for route in db_routes if route['prefix'] not in db_prefixes]
+
+        # Combinăm rutele filtrate din `db_routes` și cele din baza de date
+        combined_routes = filtered_db_routes + additional_routes
+
+
+        #combined_routes=db_routes
         # Procesăm alertele
-        for route in routes:
+        for route in db_routes:
             if route['status'] in ['hijacked', 'suspect']:  # Verificăm doar pentru rute invalide sau suspecte
                 # Verificăm dacă alerta există deja necitită
                 check_alert_query = """
@@ -97,7 +164,7 @@ def get_routes(request):
                     cursor.execute(insert_alert_query, (route['router_id'], alert_type, route['prefix'], alert_description))
 
         conn.commit()
-        return JsonResponse({'status': 'success', 'routes': routes})
+        return JsonResponse({'status': 'success', 'routes': combined_routes})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
 
@@ -224,14 +291,14 @@ def save_bgp_route(prefix, next_hop, asn_path, rpki_status, status_actions, rout
             # Actualizăm statusul rutei existente
             cursor.execute('''
                 UPDATE bgpmonsec_project.bgp_route_monitor
-                SET status_actions = %s, rpki_status = %s, "next-hop" = %s, router_id = %s
+                SET status_actions = %s, rpki_status = %s, "next_hop" = %s, router_id = %s
                 WHERE "ID" = %s
             ''', (status_actions, rpki_status, next_hop, router_id, existing_route[0]))
         else:
             # Inserăm ruta nouă
             cursor.execute('''
                 INSERT INTO bgpmonsec_project.bgp_route_monitor 
-                (prefix, "next-hop", asn_path, rpki_status, status_actions, router_id)
+                (prefix, "next_hop", asn_path, rpki_status, status_actions, router_id)
                 VALUES (%s, %s, %s, %s, %s, %s)
             ''', (prefix, next_hop, asn_path, rpki_status, status_actions, router_id))
         conn.commit()
@@ -253,7 +320,7 @@ def update_bgp_route_status(route_id, status_actions):
         cursor.execute('''
             UPDATE bgpmonsec_project.bgp_route_monitor
             SET status_actions = %s
-            WHERE "router_id" = %s
+            WHERE router_id = %s
         ''', (status_actions, route_id))
         conn.commit()
     except Exception as e:
@@ -262,62 +329,344 @@ def update_bgp_route_status(route_id, status_actions):
         cursor.close()
         conn.close()
 
-def configure_router(prefix, router_ip, username, password, action):
+def parse_bgp_output(bgp_output):
     """
-    Configurare prefix pe router: permite sau blochează un prefix.
+    Parsează ieșirea comenzii `show ip bgp` și returnează o listă de rute, inclusiv prefix, rpki_status, next_hop și ASN.
     """
-    cisco_device = {
-        'device_type': 'cisco_ios',
-        'host': router_ip,
-        'username': username,
-        'password': password,
-        'secret': password
-    }
+    routes = []
+    for line in bgp_output.splitlines():
+        parts = line.split()
+        if len(parts) > 6:  # Presupunem o linie validă de rută
+            try:
+                # Extragem informațiile relevante
+                rpki_status = parts[0]  # Statusul RPKI
+                prefix = parts[1]       # Prefixul
+                next_hop = parts[2]     # Next-hop
+                asn_path = " ".join(parts[6:])  # ASN Path
 
+                # Adăugăm ruta în listă
+                routes.append({
+                    'prefix': prefix,
+                    'rpki_status': rpki_status,
+                    'next_hop': next_hop,
+                    'asn_path': asn_path
+                })
+            except IndexError:
+                print(f"Linie ignorată: {line}")  # Linie invalidă
+    return routes
+
+
+
+# def configure_prefix_list_and_route_map(net_connect, prefix):
+#     """
+#     Configurează prefix-list și route-map pe router pentru prefixuri unknown.
+#     """
+#     # Verificăm prefix-list-ul
+#     prefix_list_output = net_connect.send_command("show ip prefix-list ALLOW_UNKNOWN")
+#     seq_numbers = [int(line.split()[2]) for line in prefix_list_output.splitlines() if "seq" in line]
+#     next_seq = max(seq_numbers) + 5 if seq_numbers else 5
+
+#     # Adăugăm regula deny dacă nu există deja
+#     if f"deny {prefix}" not in prefix_list_output:
+#         net_connect.send_config_set([f"ip prefix-list ALLOW_UNKNOWN seq {next_seq} deny {prefix}"])
+
+#     # Verificăm route-map-ul
+#     route_map_output = net_connect.send_command("show run | s route-map RPKI_POLICY")
+#     if f"route-map RPKI_POLICY deny 5" not in route_map_output:
+#         net_connect.send_config_set([
+#             "route-map RPKI_POLICY deny 5",
+#             " match ip address prefix-list ALLOW_UNKNOWN"
+#         ])
+#         net_connect.save_config()
+
+
+
+
+
+
+# def configure_bgp_neighbors(router_ip, username, password, bgp_as):
+#     """
+#     Verifică și configurează vecinii BGP cu route-map RPKI_POLICY in.
+#     """
+#     cisco_device = {
+#         'device_type': 'cisco_ios',
+#         'host': router_ip,
+#         'username': username,
+#         'password': password,
+#         'secret': password
+#     }
+
+#     try:
+#         net_connect = ConnectHandler(**cisco_device)
+#         net_connect.enable()
+
+#         # Verificăm vecinii existenți în routerul BGP
+#         bgp_output = net_connect.send_command(f"show run | s router bgp {bgp_as}")
+#         neighbors = []
+#         for line in bgp_output.splitlines():
+#             if "neighbor" in line and "remote-as" in line:
+#                 parts = line.split()
+#                 neighbor_ip = parts[1]
+#                 neighbors.append(neighbor_ip)
+
+#         # Configurăm route-map pentru fiecare neighbor
+#         commands = []
+#         for neighbor in neighbors:
+#             neighbor_config = f"neighbor {neighbor} route-map RPKI_POLICY in"
+#             if neighbor_config not in bgp_output:
+#                 print(commands)
+#                 commands.append(neighbor_config)
+#                 print(f"Adding route-map for neighbor {neighbor}.")
+
+#         if commands:
+#             net_connect.send_config_set(commands)
+#             net_connect.save_config()
+#             print("Neighbors configured successfully.")
+#         else:
+#             print("All neighbors are already configured.")
+
+#         return "configured"
+
+#     except Exception as e:
+#         print(f"Error configuring BGP neighbors: {e}")
+#         return "error"
+
+#     finally:
+#         net_connect.disconnect()
+
+
+from netmiko import ConnectHandler
+
+# def configure_router(router_id, prefix):
+#     """
+#     Configurează vecinii, prefix-list și route-map pentru un prefix, conectându-se pe baza router_id.
+#     """
+#     try:
+#         # Obține detaliile routerului din baza de date
+#         conn = database_connection()
+#         cursor = conn.cursor()
+#         cursor.execute('''
+#             SELECT "IP", username, password
+#             FROM public."ROUTERS_INPUT"
+#             WHERE router_id = %s
+#         ''', (router_id,))
+#         router_details = cursor.fetchone()
+
+#         if not router_details:
+#             print(f"Router {router_id} not found in database.")
+#             return "error"
+
+#         router_ip, username, password = router_details
+
+#         # Creează conexiunea Netmiko
+#         cisco_device = {
+#             'device_type': 'cisco_ios',
+#             'host': router_ip,
+#             'username': username,
+#             'password': password,
+#             'secret': password,
+#             'timeout': 60
+#         }
+
+#         # Conexiune Netmiko
+#         with ConnectHandler(**cisco_device) as net_connect:
+#             net_connect.enable()
+
+#             # Verificăm vecinii și configurarea lor cu route-map
+#             bgp_config_output = net_connect.send_command("show run | s router bgp")
+#             neighbors = []
+
+#             # Extragem vecinii din configurație
+#             for line in bgp_config_output.splitlines():
+#                 if "neighbor" in line and "remote-as" in line:
+#                     neighbor_ip = line.split()[1]
+#                     print(f"Vecin detectat: {neighbor_ip}")
+#                     neighbors.append(neighbor_ip)
+
+#             #configurăm Access-List (BLOCK_PREFIXES)
+#             acl_name = "BLOCK_PREFIXES"
+#             acl_output = net_connect.send_command(f"show run | s access-list {acl_name}")
+
+#             if not acl_output or f"ip access-list extended {acl_name}" not in acl_output:
+#                 print(f"Access-list {acl_name} nu există. Creăm o nouă access-list.")
+#                 cursor.execute("""
+#                     SELECT prefix FROM bgpmonsec_project.bgp_route_monitor WHERE rpki_status = 'N'
+#                 """)
+#                 prefixes = cursor.fetchall()
+
+#                 acl_commands = [f"ip access-list extended {acl_name}"]
+#                 for entry in prefixes:
+#                     acl_commands.append(f"permit ip {entry['prefix']} any")
+
+#                 # Adăugăm o regulă finală pentru permit la restul traficului
+#                 acl_commands.append("permit ip any any")
+#                 net_connect.send_config_set(acl_commands)
+#                 print(f"Access-list {acl_name} a fost configurată.")
+
+#             else:
+#                 print(f"Access-list {acl_name} există deja.")
+#             # Configurăm route-map pentru fiecare vecin
+#             commands = []
+#             for neighbor in neighbors:
+#                 commands.append(f"router bgp 10")
+#                 commands.append(f"neighbor {neighbor} route-map RPKI_POLICY in")
+
+#             # Aplicați configurările pe vecini dacă lipsesc
+#             if commands:
+#                 net_connect.send_config_set(commands)
+#                 print("Vecinii au fost configurați cu route-map RPKI_POLICY.")
+
+            
+#            # 2. Configurare Route-Map
+#             route_map_output = net_connect.send_command("show run | s route-map RPKI_POLICY")
+#             if f"route-map RPKI_POLICY deny 5" not in route_map_output:
+#                 route_map_commands = [
+#                     "route-map RPKI_POLICY deny 5",
+#                     f" match ip address {acl_name}",
+#                     "route-map RPKI_POLICY permit 10",
+#                     " match rpki valid",
+#                     " set local-preference 200",
+#                     "route-map RPKI_POLICY permit 20",
+#                     " match rpki not-found",
+#                     "route-map RPKI_POLICY permit 100"
+#                 ]
+#                 net_connect.send_config_set(route_map_commands)
+#                 print("Route-map RPKI_POLICY configurat cu regulile necesare.")
+#             # Salvăm configurația
+#             net_connect.save_config()
+#             print(f"Prefix {prefix} configurat pe router.")
+
+#         return "configured"
+
+#     except Exception as e:
+#         print(f"Error configuring router {router_id} for prefix {prefix}: {e}")
+#         return "error"
+
+
+from netmiko import ConnectHandler
+
+def configure_router(router_id, prefix):
+    """
+    Configurează vecinii, route-map și access-list pentru un prefix, conectându-se pe baza router_id.
+    """
     try:
-        net_connect = ConnectHandler(**cisco_device)
-        net_connect.enable()
+        # Obține detaliile routerului din baza de date
+        conn = database_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT "IP", username, password
+            FROM public."ROUTERS_INPUT"
+            WHERE router_id = %s
+        ''', (router_id,))
+        router_details = cursor.fetchone()
 
-        # Verificăm dacă prefixul există deja în route-map
-        output = net_connect.send_command("show route-map RPKI_POLICY")
-        prefix_rule = f"permit {prefix}" if action == "install" else f"deny {prefix}"
+        if not router_details:
+            print(f"Router {router_id} not found in database.")
+            return "error"
 
-        if prefix_rule in output:
-            print(f"Prefix {prefix} already configured with action {action} on router {router_ip}.")
-            return "already_configured"
+        router_ip, username, password = router_details
 
-        # Dacă acțiunea este deny, ștergem regula permit existentă
-        if action == "deny":
-            # Ștergem regula permit dacă există
-            delete_commands = [
-                f"no ip prefix-list ALLOW_UNKNOWN permit {prefix}"
-            ]
-            net_connect.send_config_set(delete_commands)
-            print(f"Prefix {prefix} removed from permit list on router {router_ip}.")
+        # Creează conexiunea Netmiko
+        cisco_device = {
+            'device_type': 'cisco_ios',
+            'host': router_ip,
+            'username': username,
+            'password': password,
+            'secret': password,
+            'timeout': 60
+        }
 
-        # Adăugăm regula corespunzătoare (permit sau deny)
-        commands = []
-        if action == "install":
-            commands = [
-                f"ip prefix-list ALLOW_UNKNOWN seq 5 permit {prefix}",
-                "route-map RPKI_POLICY permit 5",
-                " match ip address prefix-list ALLOW_UNKNOWN",
-                " set local-preference 150"
-            ]
-        elif action == "deny":
-            commands = [
-                f"ip prefix-list ALLOW_UNKNOWN seq 10 deny {prefix}"
-            ]
+        # Conexiune Netmiko
+        with ConnectHandler(**cisco_device) as net_connect:
+            net_connect.enable()
 
-        net_connect.send_config_set(commands)
-        net_connect.save_config()
+            # 1. Configurăm vecinii cu route-map dacă nu există
+            bgp_config_output = net_connect.send_command("show run | s router bgp")
+            neighbors = []
 
-        print(f"Prefix {prefix} successfully configured with action {action} on router {router_ip}.")
-        return "configured"
+            # Extragem vecinii din configurație
+            for line in bgp_config_output.splitlines():
+                if "neighbor" in line and "remote-as" in line:
+                    neighbor_ip = line.split()[1]
+                    neighbors.append(neighbor_ip)
+
+            commands = []
+            for neighbor in neighbors:
+                neighbor_command = f"neighbor {neighbor} route-map RPKI_POLICY in"
+                if neighbor_command not in bgp_config_output:
+                    commands.append(f"router bgp 10")
+                    commands.append(neighbor_command)
+
+            if commands:
+                net_connect.send_config_set(commands)
+                print("Vecinii au fost configurați cu route-map RPKI_POLICY.")
+
+            # 2. Configurăm route-map-ul dacă nu există
+            route_map_output = net_connect.send_command("show run | s route-map RPKI_POLICY")
+            if "route-map RPKI_POLICY deny 5" not in route_map_output:
+                route_map_commands = [
+                    "route-map RPKI_POLICY deny 5",
+                    " match ip address BLOCK_PREFIXES",
+                    "route-map RPKI_POLICY permit 10",
+                    " match rpki valid",
+                    " set local-preference 200",
+                    "route-map RPKI_POLICY permit 20",
+                    " match rpki not-found",
+                    "route-map RPKI_POLICY permit 100"
+                ]
+                net_connect.send_config_set(route_map_commands)
+                net_connect.save_config()
+                print("Route-map RPKI_POLICY configurat.")
+
+            # 3. Configurăm access-list-ul (BLOCK_PREFIXES)
+            acl_name = "BLOCK_PREFIXES"
+            acl_output = net_connect.send_command(f"show run | s access-list extended {acl_name}")
+            print(acl_output)
+            
+            if not acl_output or f"ip access-list extended {acl_name}" not in acl_output:
+                print(f"Access-list {acl_name} nu există. Creăm o nouă access-list.")
+                cursor.execute("""
+                    SELECT prefix 
+                    FROM bgpmonsec_project.bgp_route_monitor 
+                    WHERE rpki_status = 'N'
+                """)
+                prefixes = cursor.fetchall()
+                print('baaaaaaaaaaaa')
+                print(f"ip access-list extended {acl_name}")
+                print(prefixes)
+
+                acl_commands = [f"ip access-list extended {acl_name}"]
+                for entry in prefixes:
+                    # Obține prefixul din tuple și transformă-l în format wildcard
+                    prefix = entry[0]
+                    ip_network = ipaddress.IPv4Network(prefix, strict=False)
+                    wildcard = str(ip_network.network_address) + " " + str(ip_network.hostmask)
+                    acl_commands.append(f"permit ip {wildcard} any")
+
+                # Adăugăm regulă finală pentru permit la restul traficului
+                net_connect.send_config_set(acl_commands)
+                net_connect.save_config()
+                print(f"Access-list {acl_name} a fost configurată.")
+            else:
+                print(f"Access-list {acl_name} există deja. Adăugăm prefixul curent.")
+                if f"permit ip {prefix} any" not in acl_output:
+                    # Transformăm prefixul curent în wildcard
+                    ip_network = ipaddress.IPv4Network(prefix, strict=False)
+                    wildcard = str(ip_network.network_address) + " " + str(ip_network.hostmask)
+                    acl_commands = [
+                        f"ip access-list extended {acl_name}",  # Prima comandă pentru a intra în contextul ACL
+                        f"permit ip {wildcard} any"            # A doua comandă pentru a adăuga regula
+                    ]
+
+                    # Trimite comenzile către router
+                    net_connect.send_config_set(acl_commands)
+                    print(f"Prefix {prefix} adăugat în access-list {acl_name}.")
+                    net_connect.save_config()
+                    return "configured"
 
     except Exception as e:
-        print(f"Error configuring router {router_ip}: {e}")
+        print(f"Error configuring router {router_id} for prefix {prefix}: {e}")
         return "error"
 
-    finally:
-        net_connect.disconnect()
+
+

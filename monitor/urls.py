@@ -6,6 +6,7 @@ from monitor import bgp_monitor
 from pathlib import Path
 from .bgp_stats import get_unique_prefixes
 from .cpu_memory import get_router_stats
+from psycopg2.extras import RealDictCursor
 
 
 app_name = 'monitor'
