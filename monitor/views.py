@@ -229,6 +229,10 @@ def alerts_page(request):
 def bgp_monitor_page(request):
     return render(request, 'monitor/bgp_monitor.html')  
 
+@login_required
+def manage_alert_users(request):
+    return render(request, 'monitor/manage_alerts_users.html')  
+
 @require_GET
 def get_bgp_stats(request):
     fetch_bgp_summary_all_routers()

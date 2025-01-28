@@ -27,6 +27,14 @@
             <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
             <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
             <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="utilsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-key"></i> Utils
+                </a>
+                <div class="dropdown-menu" aria-labelledby="utilsDropdown">
+                    <a class="dropdown-item" href="/monitor/manage-alert-users">Manage Email Alerts</a>
+                </div>
+            </li>
         </ul>
         <div class="navbar-notifications">
             <button class="notification-btn" onclick="redirectToAlertsPage()">

@@ -1,0 +1,357 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Alerts User</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'navbar.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    
+</head>
+<div class="page-title">
+    <h1>Manage Alerts User</h1>
+</div>
+<body>
+<!-- Navigation -->
+ <!-- Navigation -->
+ <nav class="navbar navbar-expand-lg custom-navbar">
+    <div class="container">
+        <a href="/monitor/monitor" class="navbar-brand">
+            <img src="{% static 'logo.png' %}" alt="Logo" class="logo">
+            
+        </a>
+        <ul class="navbar-nav mx-auto">
+            <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+            <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+            <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
+            <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="utilsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-key"></i> Utils
+                </a>
+                <div class="dropdown-menu" aria-labelledby="utilsDropdown">
+                    <a class="dropdown-item" href="/monitor/manage-alert-users">Manage Email Alerts</a>
+                </div>
+            </li>
+        </ul>
+        <div class="navbar-notifications">
+            <button class="notification-btn" onclick="redirectToAlertsPage()">
+                <i class="fas fa-bell"></i>
+                <span class="notification-count" id="alertCount">3</span>
+            </button>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-light dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <img src="{% static 'default.png' %}" alt="User Icon" class="user-icon">
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+                <a class="dropdown-item" href="/changepass">Change Password</a>
+                <a class="dropdown-item" href="/handlelogout">Log Out</a>
+            </div>
+        </div>
+    </div>
+</nav>
+<h1>Manage Alert Users</h1>
+<table id="userTable" class="table">
+    <thead>
+        <tr>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
+            <th>Router Down</th>
+            <th>Route N</th>
+            <th>RPKI Down</th>
+            <th>Actions</th>
+        </tr>
+        <button class="btn btn-warning mt-3" onclick="triggerEmailAlerts()">Send Email Alerts</button>
+
+        <div class="container mt-4">
+            <h3>Add New User</h3>
+            <form id="addUserForm">
+                <div class="form-row">
+                    <div class="form-group col-md-3">
+                        <label for="first_name">First Name</label>
+                        <input type="text" class="form-control" id="first_name" required>
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" class="form-control" id="last_name" required>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="email">Email</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="form-group col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary w-100" onclick="addUser()">Add User</button>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <input type="checkbox" id="alert_router_down">
+                        <label for="alert_router_down">Router Down</label>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <input type="checkbox" id="alert_route_n">
+                        <label for="alert_route_n">Route N</label>
+                    </div>
+                    <div class="form-group col-md-4">
+                        <input type="checkbox" id="alert_rpki_down">
+                        <label for="alert_rpki_down">RPKI Down</label>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>
+                <input type="text" class="form-control" value="{{ user.first_name }} " disabled>
+            </td>
+            <td>
+                <input type="text2" class="form-control" value=" {{ user.last_name }}" disabled>
+            </td>
+            <td>
+                <input type="email" class="form-control" value="{{ user.email }}" disabled>
+            </td>
+            <td>
+                <input type="checkbox" {% if user.alert_router_down %}checked{% endif %} disabled>
+            </td>
+            <td>
+                <input type="checkbox" {% if user.alert_route_n %}checked{% endif %} disabled>
+            </td>
+            <td>
+                <input type="checkbox" {% if user.alert_rpki_down %}checked{% endif %}>
+            </td>
+           
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    
+    function addUser() {
+        const first_name = document.getElementById('first_name').value;
+        const last_name = document.getElementById('last_name').value;
+        const email = document.getElementById('email').value;
+        const alert_router_down = document.getElementById('alert_router_down').checked;
+        const alert_route_n = document.getElementById('alert_route_n').checked;
+        const alert_rpki_down = document.getElementById('alert_rpki_down').checked;
+
+        const userData = {
+            first_name: first_name,
+            last_name: last_name,
+            email: email,
+            alert_router_down: alert_router_down,
+            alert_route_n: alert_route_n,
+            alert_rpki_down: alert_rpki_down
+        };
+
+        fetch('/monitor/add_user_alert_email/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify(userData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            if (data.status === 'success') {
+                location.reload(); // Reîncarcă pagina după adăugare
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    function saveUsers() {
+        const rows = document.querySelectorAll('#userTable tbody tr');
+        const users = [];
+        rows.forEach(row => {
+            const user = {
+                id: row.dataset.userId,
+                alert_router_down: row.querySelectorAll('input[type="checkbox"]')[0].checked,
+                alert_route_n: row.querySelectorAll('input[type="checkbox"]')[1].checked,
+                alert_rpki_down: row.querySelectorAll('input[type="checkbox"]')[2].checked,
+            };
+            users.push(user);
+        });
+
+        fetch('/save_alert_users/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify({ users }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+            });
+    }
+
+        async function deleteUser(userId) {
+        const response = await fetch(`/monitor/delete_alert_user/${userId}/`, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': getCSRFToken() },
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert(data.message);
+            fetchAlertUsers(); // Reîncarcă lista
+        } else {
+            alert('Error deleting user: ' + data.message);
+        }
+    }
+
+    async function modifyUser(userId) {
+        const row = document.querySelector(`[data-user-id="${userId}"]`);
+        const checkboxes = row.querySelectorAll('input[type="checkbox"]');
+
+        const updatedUser = {
+            id: userId,
+            alert_router_down: checkboxes[0].checked,
+            alert_route_n: checkboxes[1].checked,
+            alert_rpki_down: checkboxes[2].checked,
+        };
+
+        const response = await fetch('/monitor/modify_alert_user/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+            body: JSON.stringify(updatedUser),
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert(data.message);
+        } else {
+            alert('Error modifying user: ' + data.message);
+        }
+    }
+
+    function getCSRFToken() {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            if (cookie.trim().startsWith('csrftoken=')) {
+                return cookie.trim().substring('csrftoken='.length);
+            }
+        }
+        return null;
+    }
+
+    async function fetchAlertUsers() {
+    const response = await fetch('/monitor/get_alert_users/');
+    const data = await response.json();
+
+    const tableBody = document.querySelector('#userTable tbody');
+    tableBody.innerHTML = ""; // Șterge rândurile existente
+
+    if (data.status === 'success') {
+        data.users.forEach(user => {
+            const row = tableBody.insertRow();
+            row.setAttribute('data-user-id', user.id);
+
+            row.innerHTML = `
+                <td><input type="text" class="form-control user-input" value="${user.first_name}" disabled></td>
+                <td><input type="text" class="form-control user-input" value="${user.last_name}" disabled></td>
+                <td><input type="email" class="form-control user-input" value="${user.email}" disabled></td>
+                <td><input type="checkbox" class="user-checkbox" ${user.alert_router_down ? 'checked' : ''} disabled></td>
+                <td><input type="checkbox" class="user-checkbox" ${user.alert_route_n ? 'checked' : ''} disabled></td>
+                <td><input type="checkbox" class="user-checkbox" ${user.alert_rpki_down ? 'checked' : ''} disabled></td>
+                <td>
+                    <button class="btn btn-warning btn-sm modify-btn" onclick="enableEdit(${user.id}, this)">Modify</button>
+                    <button class="btn btn-success btn-sm save-btn d-none" onclick="saveModifiedUser(${user.id}, this)">Save</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Delete</button>
+                </td>
+            `;
+        });
+    } else {
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center">Error loading users</td></tr>`;
+    }
+}
+
+function enableEdit(userId, btn) {
+    const row = document.querySelector(`[data-user-id="${userId}"]`);
+    const inputs = row.querySelectorAll('.user-input');
+    const checkboxes = row.querySelectorAll('.user-checkbox');
+    
+    // Deblochează toate câmpurile
+    inputs.forEach(input => {
+        input.disabled = false;
+        input.classList.add('edit-highlight'); // Adaugă efect vizual
+    });
+
+    checkboxes.forEach(checkbox => checkbox.disabled = false);
+
+    // Ascunde butonul "Modify" și arată butonul "Save"
+    btn.classList.add('d-none');
+    row.querySelector('.save-btn').classList.remove('d-none');
+}
+
+
+
+async function saveModifiedUser(userId, btn) {
+    const row = document.querySelector(`[data-user-id="${userId}"]`);
+    const inputs = row.querySelectorAll('.user-input');
+    const checkboxes = row.querySelectorAll('.user-checkbox');
+
+    const updatedUser = {
+        id: userId,
+        first_name: row.querySelectorAll('.user-input')[0].value,
+        last_name: row.querySelectorAll('.user-input')[1].value,
+        email: row.querySelectorAll('.user-input')[2].value,
+        alert_router_down: row.querySelectorAll('.user-checkbox')[0].checked,
+        alert_route_n: row.querySelectorAll('.user-checkbox')[1].checked,
+        alert_rpki_down: row.querySelectorAll('.user-checkbox')[2].checked
+    };
+
+    const response = await fetch('/monitor/modify_alert_user/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
+        body: JSON.stringify(updatedUser),
+    });
+
+    const data = await response.json();
+    if (data.status === 'success') {
+        alert(data.message);
+
+        // Blochează din nou câmpurile după salvare
+        inputs.forEach(input => {
+            input.disabled = true;
+            input.classList.remove('edit-highlight'); // Elimină efectul vizual
+        });
+        checkboxes.forEach(checkbox => checkbox.disabled = true);
+
+        // Ascunde butonul "Save" și afișează din nou "Modify"
+        btn.classList.add('d-none');
+        row.querySelector('.modify-btn').classList.remove('d-none');
+
+    } else {
+        alert('Error modifying user: ' + data.message);
+    }
+}
+// Apelează funcția la încărcarea paginii
+document.addEventListener("DOMContentLoaded", fetchAlertUsers);
+
+
+
+function triggerEmailAlerts() {
+    fetch('/monitor/send_email_alerts/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCSRFToken() }
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message); // Afișează mesajul de răspuns
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+</script>

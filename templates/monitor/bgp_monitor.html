@@ -5,11 +5,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BGP Monitor</title>
+    <title>BGP Attacks Monitor</title>
     <link rel="stylesheet" href="{% static 'navbar.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    
 </head>
 
 <div class="page-title">
@@ -17,7 +18,7 @@
 </div>
 <body>
  <!-- Navigation -->
- <nav class="navbar navbar-expand-lg custom-navbar">
+<nav class="navbar navbar-expand-lg custom-navbar">
     <div class="container">
         <a href="/monitor/monitor" class="navbar-brand">
             <img src="{% static 'logo.png' %}" alt="Logo" class="logo">
@@ -28,6 +29,14 @@
             <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
             <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
             <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="utilsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-key"></i> Utils
+                </a>
+                <div class="dropdown-menu" aria-labelledby="utilsDropdown">
+                    <a class="dropdown-item" href="/monitor/manage-alert-users">Manage Email Alerts</a>
+                </div>
+            </li>
         </ul>
         <div class="navbar-notifications">
             <button class="notification-btn" onclick="redirectToAlertsPage()">

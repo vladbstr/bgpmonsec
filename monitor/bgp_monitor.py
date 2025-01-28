@@ -159,9 +159,10 @@ def get_routes(request):
                     INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed)
                     VALUES (%s, %s, %s, %s, NOW(), 'false');
                     """
-                    alert_type = 'Invalid Route' if route['status'] == 'hijacked' else 'Unknown Route'
+                    alert_type = "Warning"
+                    alert_name = 'Invalid Route' if route['status'] == 'hijacked' else 'Unknown Route'
                     alert_description = f"Route {route['prefix']} is {route['status']}."
-                    cursor.execute(insert_alert_query, (route['router_id'], alert_type, route['prefix'], alert_description))
+                    cursor.execute(insert_alert_query, (route['router_id'], alert_type, alert_name, alert_description))
 
         conn.commit()
         return JsonResponse({'status': 'success', 'routes': combined_routes})

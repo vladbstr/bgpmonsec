@@ -214,4 +214,14 @@
     color: green;
 }
 
+.edit-highlight {
+    border: 2px solid #007bff !important;
+    background-color: #e6f2ff !important;
+    transition: 0.3s;
+}
+
+.d-none {
+    display: none !important;
+}
+
 /* CaRDs de la bgp statistics */

@@ -4,16 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modal Example</title>
-    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="{% static 'navbar.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <style>
-        .navbar {
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        .navbar-brand img {
-            height: 50px;
-        }
+
         .userImage {
             width: 150px;
             height: 150px;
@@ -41,25 +37,37 @@
     </style>
 </head>
 <body>
-
-<nav class="navbar navbar-expand-md navbar-dark bg-dark">
-    <a href="/monitor/monitor" class="navbar-brand">
-        <img src="{% static 'logo.png' %}" alt="Logo">
-    </a>
-    <ul class="navbar-nav mx-auto">
-        <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
-        <li class="nav-item"><a href="#" class="nav-link">Link 2</a></li>
-        <li class="nav-item"><a href="#" class="nav-link">Link 3</a></li>
-        <li class="nav-item"><a href="#" class="nav-link">Link 4</a></li>
-    </ul>
-    <div class="dropdown">
-        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            <img src="{% static 'default.png' %}" alt="User Icon" style="width: 20px; height: 20px;">
-        </button>
-        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuButton">
-            <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
-            <a class="dropdown-item" href="/changepass">Change Password</a>
-            <a class="dropdown-item" href="/handlelogout">Log Out</a>
+    <div class="page-title">
+        <h1>User Profile</h1>
+    </div>
+<!-- Navigation -->
+<nav class="navbar navbar-expand-lg custom-navbar">
+    <div class="container">
+        <a href="/monitor/monitor" class="navbar-brand">
+            <img src="{% static 'logo.png' %}" alt="Logo" class="logo">
+            
+        </a>
+        <ul class="navbar-nav mx-auto">
+            <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+            <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+            <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
+            <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
+        </ul>
+        <div class="navbar-notifications">
+            <button class="notification-btn" onclick="redirectToAlertsPage()">
+                <i class="fas fa-bell"></i>
+                <span class="notification-count" id="alertCount">3</span>
+            </button>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-light dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <img src="{% static 'default.png' %}" alt="User Icon" class="user-icon">
+            </button>
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item" href="{% url 'userprofile:userprofile' request.user %}">View My Profile</a>
+                <a class="dropdown-item" href="/changepass">Change Password</a>
+                <a class="dropdown-item" href="/handlelogout">Log Out</a>
+            </div>
         </div>
     </div>
 </nav>
@@ -118,6 +126,39 @@
         </div>
     </div>
 </div>
+
+<script>
+function redirectToAlertsPage() {
+    window.location.href = '/monitor/alerts/';
+}
+
+async function fetchUnreadAlertsCount() {
+    const response = await fetch('/monitor/get_unread_alerts_count/');
+    const data = await response.json();
+
+    const alertCount = document.getElementById('alertCount');
+    const notificationBtn = document.querySelector('.notification-btn');
+
+    if (data.status === 'success') {
+        const count = data.count;
+
+        if (count > 0) {
+            alertCount.innerText = count > 99 ? '99+' : count; // Afișează "99+" dacă sunt mai multe notificări
+            alertCount.style.display = 'inline';
+            notificationBtn.setAttribute('data-unread', 'true');
+        } else {
+            alertCount.style.display = 'none';
+            notificationBtn.setAttribute('data-unread', 'false');
+        }
+    } else {
+        console.error('Error fetching alerts:', data.message);
+    }
+}
+
+// Fetch inițial și actualizări periodice
+fetchUnreadAlertsCount();
+setInterval(fetchUnreadAlertsCount, 5000);
+</script>
 
 <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>

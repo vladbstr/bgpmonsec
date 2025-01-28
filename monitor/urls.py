@@ -6,6 +6,7 @@ from monitor import bgp_monitor
 from pathlib import Path
 from .bgp_stats import get_unique_prefixes
 from .cpu_memory import get_router_stats
+from .email_alerts import add_user_alert_email, get_alert_users, delete_alert_user, modify_alert_user, send_email_alerts_view
 from psycopg2.extras import RealDictCursor
 
 
@@ -39,6 +40,12 @@ urlpatterns = [
     path('get_rpki_trends/', bgp_monitor.get_rpki_trends, name='get_rpki_trends'),
     path('bgp-monitor/', views.bgp_monitor_page, name='bgp_monitor_page'),
     path('manage_bgp_route/', views.manage_bgp_route, name='manage_bgp_route'),
+    path('manage-alert-users/', views.manage_alert_users, name='manage_alert_users'),
+    path('add_user_alert_email/', add_user_alert_email, name='add_user_alert_email'),
+    path('get_alert_users/', get_alert_users, name='get_alert_users'),
+    path('delete_alert_user/<int:user_id>/', delete_alert_user, name='delete_alert_user'),
+    path('modify_alert_user/', modify_alert_user, name='modify_alert_user'),
+    path('send_email_alerts/', send_email_alerts_view, name='send_email_alerts'),
 
     
    # /monitor/api/get-bgp-stats/
