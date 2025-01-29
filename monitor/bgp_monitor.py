@@ -121,32 +121,74 @@ def get_routes(request):
         cursor.execute(query_db_routes)
         additional_routes = cursor.fetchall()
 
-        # Filtrăm rutele din `db_routes` care nu se regăsesc deja în `additional_routes`
-        # Creăm un set cu toate prefixurile din baza de date
-        db_prefixes = {route['prefix'] for route in additional_routes}
+        # Creăm un dicționar pentru a accesa rapid rutele existente în baza de date
+        db_routes_dict = {route['prefix']: route for route in additional_routes}
 
-        # Eliminăm rutele duplicat din `db_routes`
-        filtered_db_routes = [route for route in db_routes if route['prefix'] not in db_prefixes]
+        # Filtrăm rutele din `db_routes` care nu se regăsesc deja în `bgp_route_monitor`
+        filtered_db_routes = []
+        for route in db_routes:
+            prefix = route['prefix']
+            if prefix in db_routes_dict:
+                existing_route = db_routes_dict[prefix]
+                new_status = route['rpki_status']
+                old_status = existing_route['rpki_status']
 
-        # Combinăm rutele filtrate din `db_routes` și cele din baza de date
-        combined_routes = filtered_db_routes + additional_routes
+                # 🔹 Verificăm dacă `rpki_status` s-a schimbat de la `N` la `I` sau `V`
+                if old_status == 'N' and new_status in ['I', 'V']:
+                    print(f"⚠️ Ruta {prefix} și-a schimbat statusul RPKI de la N -> {new_status}. Actualizăm în DB!")
+
+                    # 🔹 Actualizăm în baza de date
+                    cursor.execute("""
+                        UPDATE bgpmonsec_project.bgp_route_monitor
+                        SET rpki_status = %s
+                        WHERE prefix = %s
+                    """, (new_status, prefix))
+                    conn.commit()
+
+                    # 🔹 Inserăm o alertă în baza de date
+                    alert_query = """
+                        INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed, email_send)
+                        VALUES (%s, %s, %s, %s, NOW(), 'false', 'false')
+                    """
+                    alert_description = f"Route {prefix} has changed from NOT FOUND (N) to {new_status}."
+                    cursor.execute(alert_query, (
+                        existing_route['router_id'], 
+                        'Critical' if new_status == 'I' else 'Information', 
+                        'Route RPKI Status Changed', 
+                        alert_description
+                    ))
+                    conn.commit()
+
+                # Înlocuim ruta veche cu cea actualizată
+                db_routes_dict[prefix] = route
+            else:
+                # Dacă nu există deja în DB, o adăugăm în `filtered_db_routes`
+                filtered_db_routes.append(route)
+
+        # Combinăm rutele procesate
+        combined_routes = filtered_db_routes + list(db_routes_dict.values())
 
 
-        #combined_routes=db_routes
         # Procesăm alertele
         for route in db_routes:
             if route['status'] in ['hijacked', 'suspect']:  # Verificăm doar pentru rute invalide sau suspecte
-                # Verificăm dacă alerta există deja necitită
+                alert_description = f"Route {route['prefix']} is {route['status']}."
+                
+                #alert_description = "Route 2.16.146.0/24 is hijacked."
+                print(alert_description)
+                
+                # 🔎 Verificăm dacă există deja o alertă necitită cu aceași descriere
                 check_alert_query = """
-                SELECT * 
+                SELECT "ID" 
                 FROM bgpmonsec_project.alerts 
-                WHERE router_id = %s AND alert_name = %s AND was_readed = 'false';
+                WHERE router_id = %s AND description = %s AND was_readed = 'false';
                 """
-                cursor.execute(check_alert_query, (route['router_id'], route['prefix']))
+                cursor.execute(check_alert_query, (route['router_id'], alert_description))
                 existing_alert = cursor.fetchone()
 
                 if existing_alert:
-                    # Actualizăm timestamp-ul alertei existente
+                    # 🔄 Dacă alerta există, doar actualizăm timestamp-ul
+                    print('exista')
                     update_alert_query = """
                     UPDATE bgpmonsec_project.alerts
                     SET "timestamp" = NOW()
@@ -154,14 +196,14 @@ def get_routes(request):
                     """
                     cursor.execute(update_alert_query, (existing_alert['ID'],))
                 else:
-                    # Inserăm o nouă alertă
+                    # 🆕 Dacă nu există alertă similară, inserăm una nouă
                     insert_alert_query = """
-                    INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed)
-                    VALUES (%s, %s, %s, %s, NOW(), 'false');
+                    INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed, email_send)
+                    VALUES (%s, %s, %s, %s, NOW(), 'false', 'false');
                     """
-                    alert_type = "Warning"
-                    alert_name = 'Invalid Route' if route['status'] == 'hijacked' else 'Unknown Route'
-                    alert_description = f"Route {route['prefix']} is {route['status']}."
+                    alert_type = "Critical" if route['status'] == 'hijacked' else "Warning"
+                    alert_name = "Invalid Route" if route['status'] == 'hijacked' else "Unknown Route"
+                    
                     cursor.execute(insert_alert_query, (route['router_id'], alert_type, alert_name, alert_description))
 
         conn.commit()

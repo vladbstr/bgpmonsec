@@ -13,6 +13,7 @@ def fetch_bgp_summary(router_id):
     ###########################
     #sh ip bgp summaryy
     ############################
+    print('face update')
     cursor = conn.cursor()
     cursor.execute('SELECT "IP",username,password from public."ROUTERS_INPUT" where router_id=%s',(router_id,))
     conn_details=cursor.fetchall()
@@ -48,7 +49,7 @@ def fetch_bgp_summary(router_id):
             if len(parts) < 10:
                 # #print(f"Skipping line (not enough parts): {line}")
                 continue
-            
+            print(line)
             neighbor_ip = parts[0]
             as_number=parts[2]
             state = parts[9]  # Adjust if state column is different
