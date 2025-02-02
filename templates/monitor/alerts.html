@@ -56,26 +56,27 @@
 <div class="container mt-5">
     <h2>Alerts</h2>
     <button class="btn btn-primary" onclick="markSelectedAlertsAsRead()">Mark as Read</button>
-    <table class="table table-striped">
-        <thead>
-            <th>
-                <input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)">
-            </th>
-            <tr>
-                <th></th>
-                <th>Router ID</th>
-                <th>Alert Type</th>
-                <th>Alert Name</th>
-                <th>Description</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody id="alertsTable">
-            <tr>
-                <td colspan="6" class="text-center">Loading alerts...</td>
-            </tr>
-        </tbody>
-    </table>
+    <div style="max-height: 600px; overflow-y: auto;">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)">
+                    </th>
+                    <th>Router ID</th>
+                    <th>Alert Type</th>
+                    <th>Alert Name</th>
+                    <th>Description</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="alertsTable">
+                <tr>
+                    <td colspan="6" class="text-center">Loading alerts...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
     
 </div>
 </body>

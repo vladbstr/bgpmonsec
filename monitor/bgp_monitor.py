@@ -84,10 +84,35 @@ def get_routes(request):
                     except Exception as e:
                         print(f"Eroare la SELECT: {e}")
 
-                    # Dacă ruta este deja `installed`, o sărim
-                    if installed_route:
-                        print(f"Ruta {route['prefix']} este deja `installed`. Sar peste configurare.")
-                        continue
+
+                    if installed_route != None:
+                        db_rpki_status = installed_route["rpki_status"]
+                        
+                        if installed_route and installed_route["rpki_status"] != route['rpki_status']:
+
+                            
+                            
+                            print(f"Ruta {route['prefix']} are un RPKI_STATUS diferit ({db_rpki_status} vs {route['rpki_status']}). Se face update.")
+                                # Facem update la status
+                            cursor.execute("""
+                                DELETE FROM bgpmonsec_project.bgp_route_monitor
+                                WHERE prefix = %s AND router_id = %s
+                            """, (route['prefix'], route['router_id']))
+                            conn.commit()
+
+                            # Adăugăm o alertă pentru schimbarea RPKI_STATUS
+                            alert_description = f"Route {route['prefix']} changed RPKI status from {db_rpki_status} to {route['rpki_status']}."
+                            cursor.execute("""
+                                INSERT INTO bgpmonsec_project.alerts (router_id, alert_type, alert_name, description, "timestamp", was_readed, email_send)
+                                VALUES (%s, %s, %s, %s, NOW(), 'false', 'false')
+                            """, (route['router_id'], 'Warning', 'RPKI Status Change', alert_description))
+                            conn.commit()
+                        
+
+                        if installed_route and installed_route["rpki_status"] == route['rpki_status']:
+                            print(f"Ruta {route['prefix']} este deja `installed`. Sar peste configurare.")
+                            print('baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+                            continue
                     # Inserăm ruta în baza de date
                     cursor.execute("""
                         INSERT INTO bgpmonsec_project.bgp_route_monitor 
@@ -188,7 +213,7 @@ def get_routes(request):
 
                 if existing_alert:
                     # 🔄 Dacă alerta există, doar actualizăm timestamp-ul
-                    print('exista')
+                    
                     update_alert_query = """
                     UPDATE bgpmonsec_project.alerts
                     SET "timestamp" = NOW()

@@ -154,6 +154,9 @@
             row.insertCell(3).innerText = route.rpki_status;
             row.insertCell(4).innerText = new Date(route.timestamp).toLocaleString();
             row.insertCell(5).innerText = route.status || 'Pending';
+            if (route.rpki_status === 'I') {
+                route.status_actions = 'deny';
+            }
             row.insertCell(6).innerText = route.status_actions || 'no action';
             if (route.status_actions === 'installed') {
                 installedCount++;
@@ -167,7 +170,8 @@
             } else if (route.rpki_status === 'N') {
                 row.style.backgroundColor = '#FFD700'; // Galben închis pentru N
             } else if (route.rpki_status === 'I'){
-                row.style.backgroundColor = 'red';
+                row.style.backgroundColor = 'red';                
+
             }
 
             // Butoane de acțiune

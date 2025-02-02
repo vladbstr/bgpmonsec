@@ -65,7 +65,7 @@
             <th>Last Name</th>
             <th>Email</th>
             <th>Router Down</th>
-            <th>Route N</th>
+            <th>Suspect routes</th>
             <th>RPKI Down</th>
             <th>Actions</th>
         </tr>
@@ -98,7 +98,7 @@
                     </div>
                     <div class="form-group col-md-4">
                         <input type="checkbox" id="alert_route_n">
-                        <label for="alert_route_n">Route N</label>
+                        <label for="alert_route_n">Suspect routes</label>
                     </div>
                     <div class="form-group col-md-4">
                         <input type="checkbox" id="alert_rpki_down">
@@ -353,5 +353,37 @@ function triggerEmailAlerts() {
     })
     .catch(error => console.error('Error:', error));
 }
+
+
+function redirectToAlertsPage() {
+    window.location.href = '/monitor/alerts/';
+}
+
+async function fetchUnreadAlertsCount() {
+    const response = await fetch('/monitor/get_unread_alerts_count/');
+    const data = await response.json();
+
+    const alertCount = document.getElementById('alertCount');
+    const notificationBtn = document.querySelector('.notification-btn');
+
+    if (data.status === 'success') {
+        const count = data.count;
+
+        if (count > 0) {
+            alertCount.innerText = count > 99 ? '99+' : count; // Afișează "99+" dacă sunt mai multe notificări
+            alertCount.style.display = 'inline';
+            notificationBtn.setAttribute('data-unread', 'true');
+        } else {
+            alertCount.style.display = 'none';
+            notificationBtn.setAttribute('data-unread', 'false');
+        }
+    } else {
+        console.error('Error fetching alerts:', data.message);
+    }
+}
+
+// Fetch inițial și actualizări periodice
+fetchUnreadAlertsCount();
+setInterval(fetchUnreadAlertsCount, 5000);
 
 </script>

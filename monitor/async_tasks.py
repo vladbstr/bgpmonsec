@@ -155,14 +155,29 @@ def _update_router_status(ip_router, status):
     if  new_status == 'inactive':
         cursor.execute('SELECT router_id FROM public."ROUTERS_INPUT" WHERE "IP" = %s', (ip_router,))
         router_id = cursor.fetchone()[0]
+        alert_description = f"The router {router_id} with IP {ip_router} is now down."
 
-        write_alert(
-            router_id=router_id,
-            alert_type="Router Connection",
-            alert_name="Router Down",
-            description=f"The router {router_id} with IP {ip_router} is now down.",
-            timestamp=datetime.now()
-        )
+        # Verificăm dacă există deja o alertă necitită cu același mesaj
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM bgpmonsec_project.alerts 
+            WHERE router_id = %s 
+            AND description = %s 
+            AND was_readed = 'false';
+        """, (router_id, alert_description))
+        
+        existing_alert_count = cursor.fetchone()[0]
+
+        if existing_alert_count == 0:
+            # Dacă nu există alertă necitită, adăugăm o nouă alertă
+
+            write_alert(
+                router_id=router_id,
+                alert_type="Router Connection",
+                alert_name="Router Down",
+                description=f"The router {router_id} with IP {ip_router} is now down.",
+                timestamp=datetime.now()
+            )
 
     # Update the router status and downtime
     cursor.execute('UPDATE public."ROUTERS_INPUT" SET r_state = %s, downtime = %s WHERE "IP" = %s', (new_status, new_downtime, ip_router))
@@ -170,6 +185,8 @@ def _update_router_status(ip_router, status):
 
     cursor.close()
     conn.close()
+
+
 async def extract_and_update_router_details():
     loop = asyncio.get_event_loop()
     r_details = await loop.run_in_executor(None, _extract_routers_details)

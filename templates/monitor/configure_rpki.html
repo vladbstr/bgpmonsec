@@ -133,6 +133,12 @@
         } else if (config_status === 'Configured' && connection_status === 'Disconnected') {
             newRow.style.backgroundColor = 'lightcoral';
             actionCell.innerHTML = '<span>Check connection</span>';
+        } else if (router.r_state === 'inactive') {
+            console.log('e red')
+            newRow.style.backgroundColor = 'red';
+            actionCell.innerHTML = '<span>Please check the device connection.</span>';
+            configCell.innerHTML = '<span>Connection down 😢</span>';
+            connectionCell.innerHTML = '<span>Connection down 😢</span>';
         }
         });
     }
