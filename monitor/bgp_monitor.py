@@ -111,7 +111,6 @@ def get_routes(request):
 
                         if installed_route and installed_route["rpki_status"] == route['rpki_status']:
                             print(f"Ruta {route['prefix']} este deja `installed`. Sar peste configurare.")
-                            print('baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
                             continue
                     # Inserăm ruta în baza de date
                     cursor.execute("""
@@ -198,9 +197,7 @@ def get_routes(request):
         for route in db_routes:
             if route['status'] in ['hijacked', 'suspect']:  # Verificăm doar pentru rute invalide sau suspecte
                 alert_description = f"Route {route['prefix']} is {route['status']}."
-                
-                #alert_description = "Route 2.16.146.0/24 is hijacked."
-                print(alert_description)
+            
                 
                 # 🔎 Verificăm dacă există deja o alertă necitită cu aceași descriere
                 check_alert_query = """
