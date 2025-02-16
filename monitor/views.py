@@ -233,6 +233,11 @@ def bgp_monitor_page(request):
 def manage_alert_users(request):
     return render(request, 'monitor/manage_alerts_users.html')  
 
+@login_required
+def app_performance_view(request):
+    """Returnează pagina pentru analiza performanței aplicației."""
+    return render(request, 'monitor/app_performance.html')
+
 @require_GET
 def get_bgp_stats(request):
     fetch_bgp_summary_all_routers()
@@ -598,6 +603,41 @@ def manage_bgp_route(request):
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
 
+
+
+def get_throughput_data(request):
+    try:
+        conn = database_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Selectăm ultimele 50 de înregistrări, în ordine descrescătoare după timestamp
+        cursor.execute("""
+            SELECT "timestamp", throughput_value 
+            FROM bgpmonsec_project.throughput 
+            ORDER BY "timestamp" DESC
+            LIMIT 50;
+        """)
+        results = cursor.fetchall()
+        conn.close()
+
+        # Extragem timestamp-urile și valorile de throughput
+        timestamps = [row["timestamp"].strftime('%Y-%m-%d %H:%M:%S') for row in results]
+        throughput_values = [row["throughput_value"] for row in results]
+
+        # ✅ Le inversăm ca să fie de la cele mai vechi la cele mai noi
+        timestamps.reverse()
+        throughput_values.reverse()
+
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'timestamps': timestamps,
+                'throughput_values': throughput_values
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 

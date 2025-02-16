@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Performance</title>
+    <link rel="stylesheet" href="{% static 'navbar.css' %}">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg custom-navbar">
+        <div class="container">
+            <a href="/monitor/monitor" class="navbar-brand">
+                <img src="{% static 'logo.png' %}" alt="Logo" class="logo">
+            </a>
+            <ul class="navbar-nav mx-auto">
+                <li class="nav-item"><a href="/monitor/bgp-stats" class="nav-link">BGP Statistics</a></li>
+                <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
+                <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
+                <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
+                <li class="nav-item"><a href="/monitor/app-performance" class="nav-link active">App Performance</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h2>Application Performance Metrics</h2>
+
+        <!-- Throughput Chart -->
+        <h3>Throughput Over Time</h3>
+        <div id="throughputChart" style="width: 100%; height: 400px; margin-bottom: 30px;"></div>
+
+        <!-- Placeholder pentru latency și alte metrice -->
+        <h3>Latency (Coming Soon)</h3>
+        <div id="latencyChart" style="width: 100%; height: 400px; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+            <p style="color: gray;">Latency measurement will be implemented soon.</p>
+        </div>
+    </div>
+
+    <script>
+        async function fetchThroughputData() {
+    try {
+        const response = await fetch('/monitor/get_throughput/');
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            renderThroughputChart(data.data);
+        } else {
+            console.error('Error fetching throughput data:', data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+        function renderThroughputChart(data) {
+            const chartDom = document.getElementById('throughputChart');
+            const myChart = echarts.init(chartDom);
+
+            const option = {
+                title: {
+                    text: 'Application Throughput (Requests/sec)',
+                    left: 'center',
+                    textStyle: { fontSize: 20, fontWeight: 'bold' },
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function (params) {
+                        let content = `<b>${params[0].axisValue}</b><br/>`;
+                        params.forEach(param => {
+                            content += `${param.marker} ${param.seriesName}: ${param.data} req/sec<br/>`;
+                        });
+                        return content;
+                    }
+                },
+                xAxis: {
+                    type: 'category',
+                    data: data.timestamps,
+                    name: 'Timestamp'
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Requests/sec'
+                },
+                series: [
+                    {
+                        name: 'Throughput',
+                        type: 'line',
+                        data: data.throughput_values,
+                        smooth: true,
+                        color: 'blue'
+                    }
+                ]
+            };
+
+            myChart.setOption(option);
+        }
+
+        setInterval(fetchThroughputData, 5000);
+        fetchThroughputData();
+    </script>
+
+</body>
+</html>

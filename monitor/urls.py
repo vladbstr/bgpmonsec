@@ -46,6 +46,8 @@ urlpatterns = [
     path('delete_alert_user/<int:user_id>/', delete_alert_user, name='delete_alert_user'),
     path('modify_alert_user/', modify_alert_user, name='modify_alert_user'),
     path('send_email_alerts/', send_email_alerts_view, name='send_email_alerts'),
+    path('get_throughput/', views.get_throughput_data, name='get_throughput'),
+    path('app-performance/', views.app_performance_view, name='app_performance'),
 
     
    # /monitor/api/get-bgp-stats/
