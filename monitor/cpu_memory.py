@@ -9,6 +9,7 @@ from django.utils.dateparse import parse_datetime
 from datetime import datetime, timedelta
 import paramiko
 import time
+from .views import measure_latency
 
 conn = database_connection()
 
@@ -123,9 +124,11 @@ def get_router_info_cpu_mem_spec_all_routers():
             if state == 'active':
                 memory_info, cpu_info = get_router_info_cpu_mem(ip, username, password)
                 if memory_info and cpu_info:
+                    
                     cursor.execute('INSERT INTO bgpmonsec_project.router_cpu_memory (router_id, cpu, memory,timestamp) VALUES (%s, %s, %s, %s)',
                                 (router_id, cpu_info, memory_info,sst_timestamp))
                     conn.commit()
+                  
         return 200
             
     except Exception as e:
@@ -183,11 +186,7 @@ def get_router_stats(request, router_id):
 
 
 
-# Exemplu de utilizare
+
 if __name__ == '__main__':
-    host = '1.1.1.1'
-    username = 'admin'
-    password = 'cisco'
-    #memory_output, cpu_output = get_router_info_cpu_mem(router_id)
     get_router_info_cpu_mem_spec_router_id("20072418142931314")
     get_router_info_cpu_mem_spec_all_routers()

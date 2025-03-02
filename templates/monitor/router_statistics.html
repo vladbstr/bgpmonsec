@@ -338,18 +338,17 @@ async function fetchUnreadAlertsCount() {
 }
 
 // Fetch inițial și actualizări periodice
-fetchUnreadAlertsCount();
-setInterval(fetchUnreadAlertsCount, 5000);
 
-    
+
+
         // Fetch inițial
-     
+
         fetchUnreadAlertsCount();
-        
-    
+        updateAll()
+
         // Actualizări periodice
- 
-        setInterval(fetchUnreadAlertsCount, 5000);
+        setInterval(updateAll,5000);
+        setInterval(fetchUnreadAlertsCount, 10000);
     </script>
     
 </body>

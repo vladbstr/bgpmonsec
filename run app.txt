@@ -1,1 +1,9 @@
 python manage.py runsslserver --certificate certs/bgpmonsec.crt --key certs/bgpmonsec.key 443
+
+instalare memurai:
+
+cu admin: msiexec /i Memurai-Developer-2.0.0.msi /l*v "install.log" din directorul downloads
+
+py manage.py qcluster   - comanda pentru pornirea task urilor asincrone
+
+taskkill /im python.exe /f  - stop qclaster

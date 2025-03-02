@@ -2,6 +2,7 @@ import time
 import psycopg2
 from django.utils.deprecation import MiddlewareMixin
 from .connections import database_connection
+from django.http import JsonResponse
 
 class ThroughputMiddleware(MiddlewareMixin):
     def __init__(self, get_response):
@@ -40,3 +41,4 @@ class ThroughputMiddleware(MiddlewareMixin):
                 print(f"❌ Eroare la salvarea throughput-ului: {e}")
 
         return response
+    

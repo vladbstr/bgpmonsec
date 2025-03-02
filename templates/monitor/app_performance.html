@@ -34,11 +34,8 @@
         <h3>Throughput Over Time</h3>
         <div id="throughputChart" style="width: 100%; height: 400px; margin-bottom: 30px;"></div>
 
-        <!-- Placeholder pentru latency și alte metrice -->
-        <h3>Latency (Coming Soon)</h3>
-        <div id="latencyChart" style="width: 100%; height: 400px; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center;">
-            <p style="color: gray;">Latency measurement will be implemented soon.</p>
-        </div>
+        <h3>Application Latency Over Time</h3>
+        <div id="latencyChart" style="width: 100%; height: 400px; margin-bottom: 30px;"></div>
     </div>
 
     <script>
@@ -100,6 +97,79 @@
             myChart.setOption(option);
         }
 
+
+
+        async function fetchLatencyData() {
+        try {
+            const response = await fetch('/monitor/api/get-latency/');
+            const data = await response.json();
+
+            if (Object.keys(data).length > 0) {
+                renderLatencyChart(data);
+            } else {
+                console.error("No latency data available");
+            }
+        } catch (error) {
+            console.error("Error fetching latency data:", error);
+        }
+    }
+
+    function renderLatencyChart(data) {
+        const chartDom = document.getElementById('latencyChart');
+        const myChart = echarts.init(chartDom);
+
+        let seriesData = [];
+        let legendData = [];
+
+        Object.keys(data).forEach(endpoint => {
+            legendData.push(endpoint);
+            seriesData.push({
+                name: endpoint,
+                type: 'line',
+                data: data[endpoint].latencies.reverse(),
+                smooth: true
+            });
+        });
+
+        const option = {
+            title: {
+                text: 'Function Latency (ms)',
+                left: 'center',
+                textStyle: { fontSize: 20, fontWeight: 'bold' },
+            },
+            tooltip: {
+                trigger: 'axis',
+                formatter: function (params) {
+                    let content = `<b>${params[0].axisValue}</b><br/>`;
+                    params.forEach(param => {
+                        content += `${param.marker} ${param.seriesName}: ${param.data} ms<br/>`;
+                    });
+                    return content;
+                }
+            },
+            legend: {
+                data: legendData,
+                top: '10%'
+            },
+            xAxis: {
+                type: 'category',
+                data: data[Object.keys(data)[0]].timestamps.reverse(),
+                name: 'Timestamp',
+                axisLabel: { rotate: 45 }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'Latency (ms)',
+                min: 0
+            },
+            series: seriesData
+        };
+
+        myChart.setOption(option);
+    }
+
+    setInterval(fetchLatencyData, 5000);
+    fetchLatencyData();
         setInterval(fetchThroughputData, 5000);
         fetchThroughputData();
     </script>

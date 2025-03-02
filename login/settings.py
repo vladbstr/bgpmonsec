@@ -33,6 +33,8 @@ SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -53,6 +55,7 @@ INSTALLED_APPS = [
     'monitor',
     'corsheaders',
     'sslserver',
+    'django_q',
 ]
 
 MIDDLEWARE = [
@@ -68,6 +71,16 @@ MIDDLEWARE = [
 ]
 
 MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
+
+Q_CLUSTER = {
+    'name': 'DjangoQ',
+    'workers': 4,  # Numărul de procese de execuție
+    'timeout': 60,
+    'retry': 300,
+    'queue_limit': 50,
+    'bulk': 10,
+    'orm': 'default',  # Stocăm task-urile în baza de date Django
+}
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_METHODS = [

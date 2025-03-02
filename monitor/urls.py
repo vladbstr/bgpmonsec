@@ -8,6 +8,7 @@ from .bgp_stats import get_unique_prefixes
 from .cpu_memory import get_router_stats
 from .email_alerts import add_user_alert_email, get_alert_users, delete_alert_user, modify_alert_user, send_email_alerts_view
 from psycopg2.extras import RealDictCursor
+from .performace_middleware import get_latency_data
 
 
 app_name = 'monitor'
@@ -48,6 +49,7 @@ urlpatterns = [
     path('send_email_alerts/', send_email_alerts_view, name='send_email_alerts'),
     path('get_throughput/', views.get_throughput_data, name='get_throughput'),
     path('app-performance/', views.app_performance_view, name='app_performance'),
+    path('api/get-latency/', views.get_latency_data, name='get_latency_data'),
 
     
    # /monitor/api/get-bgp-stats/

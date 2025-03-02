@@ -157,9 +157,11 @@ def fetch_bgp_summary(router_id):
     cursor.close()
     
     ##print("Data collection and storage complete.")
-
+import time
+from django.db import connection
 
 def fetch_bgp_summary_all_routers():
+    start_time = time.time()  # 🕒 Start timer
     cursor = conn.cursor()
     cursor.execute('SELECT router_id, r_state from public."ROUTERS_INPUT"')
     conn_details=cursor.fetchall()
@@ -167,6 +169,20 @@ def fetch_bgp_summary_all_routers():
         if state == 'active':
             #print(router_id)
             fetch_bgp_summary(router_id)
+
+
+    end_time = time.time()  # 🕒 Stop timer
+    latency = (end_time - start_time) * 1000  # Convertim în milisecunde
+
+    # 📝 Salvăm latența în baza de date manual
+    cursor = connection.cursor()
+    cursor.execute("""
+        INSERT INTO bgpmonsec_project.latency ("router ID", latency, endpoint, "timestamp")
+        VALUES (%s, %s, %s, NOW())
+    """, ("Background Task", f"{latency:.2f}", "fetch BGP Data"))
+    connection.commit()
+    cursor.close()
+
     
 
 def get_unique_prefixes(request):   

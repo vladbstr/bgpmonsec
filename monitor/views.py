@@ -196,6 +196,36 @@ def configure_rpki(request):
             return JsonResponse({'status': 'error', 'message': str(e)})
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+    
+
+import time
+from django.http import JsonResponse
+from .connections import database_connection
+
+def measure_latency(view_func):
+    def wrapper(request, *args, **kwargs):
+        start_time = time.time()
+        response = view_func(request, *args, **kwargs)
+        end_time = time.time()
+        
+        latency = (end_time - start_time) * 1000  # Convertim în milisecunde
+        endpoint = request.path  # Endpoint-ul accesat
+        router_id = request.GET.get("router_id", "N/A")  # Extragem router_id dacă există în request
+
+        # Salvăm în baza de date
+        conn = database_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO bgpmonsec_project.latency ("router ID", latency, endpoint, "timestamp")
+            VALUES (%s, %s, %s, NOW())
+        """, (router_id, f"{latency:.2f}", endpoint))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return response
+    return wrapper
+
 
 @login_required
 def monitorizare_retea(request):
@@ -213,6 +243,7 @@ def router_uptime(request, router_id):
 def router_statistics(request, router_id):
     return render(request, 'monitor/router_statistics.html', {'router_id': router_id})
 
+@measure_latency
 def router_details(request,router_id):
     r_details=process_router_details(router_id)
     return JsonResponse(r_details)
@@ -238,6 +269,7 @@ def app_performance_view(request):
     """Returnează pagina pentru analiza performanței aplicației."""
     return render(request, 'monitor/app_performance.html')
 
+@measure_latency
 @require_GET
 def get_bgp_stats(request):
     fetch_bgp_summary_all_routers()
@@ -249,6 +281,10 @@ def get_bgp_stats(request):
         'num_prefixes_ipv4': num_prefixes_ipv4,
     }
     return JsonResponse(data)
+
+
+
+
 
 import requests
 from django.http import JsonResponse
@@ -638,6 +674,40 @@ def get_throughput_data(request):
 
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
+    
+    
+def get_latency_data(request):
+    """Returnează latența grupată pe fiecare endpoint din baza de date."""
+    conn = database_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT "timestamp", latency, endpoint
+        FROM bgpmonsec_project.latency 
+        ORDER BY "timestamp" DESC 
+        LIMIT 100
+    """)
+    rows = cursor.fetchall()
+
+    latency_data = {}  # Dictionar pentru a stoca latența pe fiecare endpoint
+
+    for row in rows:
+        timestamp = row[0].strftime("%Y-%m-%d %H:%M:%S")
+        latency = float(row[1])
+        endpoint = row[2]
+
+        if endpoint not in latency_data:
+            latency_data[endpoint] = {"timestamps": [], "latencies": []}
+
+        latency_data[endpoint]["timestamps"].append(timestamp)
+        latency_data[endpoint]["latencies"].append(latency)
+
+    cursor.close()
+    conn.close()
+    
+    return JsonResponse(latency_data)
+
+
 
 
 
