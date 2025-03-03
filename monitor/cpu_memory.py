@@ -147,6 +147,7 @@ def extract_cpu_percentage(cpu_str):
         return int(match.group(1))
     return None
 
+
 def get_router_stats(request, router_id):
     cursor = conn.cursor()
 

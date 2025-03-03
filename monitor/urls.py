@@ -8,7 +8,7 @@ from .bgp_stats import get_unique_prefixes
 from .cpu_memory import get_router_stats
 from .email_alerts import add_user_alert_email, get_alert_users, delete_alert_user, modify_alert_user, send_email_alerts_view
 from psycopg2.extras import RealDictCursor
-from .performace_middleware import get_latency_data
+
 
 
 app_name = 'monitor'

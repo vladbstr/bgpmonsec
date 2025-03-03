@@ -7,3 +7,8 @@ cu admin: msiexec /i Memurai-Developer-2.0.0.msi /l*v "install.log" din director
 py manage.py qcluster   - comanda pentru pornirea task urilor asincrone
 
 taskkill /im python.exe /f  - stop qclaster
+
+
+
+
+locust -f locust_test.py --host=https://127.0.0.1 --users 10 --spawn-rate 1 --run-time 1m
