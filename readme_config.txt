@@ -31,3 +31,6 @@ route-map RPKI_POLICY deny 20
 route-map RPKI_POLICY permit 30
  match rpki valid
  set local-preference 200
+
+
+user int admin admin2 admin

@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="{% static 'navbar.css' %}">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
     
     <style>
         .container {
@@ -40,6 +44,16 @@
             <li class="nav-item"><a href="/monitor/rpki-servers-stats" class="nav-link">RPKI Servers</a></li>
             <li class="nav-item"><a href="/monitor/configure_rpki" class="nav-link">RPKI CHECK</a></li>
             <li class="nav-item"><a href="/monitor/bgp-monitor" class="nav-link">BGP Attacks Monitor</a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="utilsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-key"></i> Utils
+                </a>
+                <div class="dropdown-menu" aria-labelledby="utilsDropdown">
+                    <a class="dropdown-item" href="/monitor/manage-alert-users">Manage Email Alerts</a>
+                    <a class="dropdown-item" href="/monitor/app-performance">App Performance</a>
+                
+                </div>
+            </li>
         </ul>
         <div class="navbar-notifications">
             <button class="notification-btn" onclick="redirectToAlertsPage()">
